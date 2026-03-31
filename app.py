@@ -12,5 +12,5 @@ def index():
 
 
 if __name__ == "__main__":
-    threading.Timer(1.0, webbrowser.open, args=("http://localhost:5000",)).start()
-    app.run(debug=True)
+    threading.Timer(1.0, webbrowser.open, args=("http://localhost:6578",)).start()
+    app.run(debug=True, port=6578)
