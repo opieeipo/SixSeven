@@ -229,8 +229,9 @@ document.getElementById("hiscore").textContent = hiScore;
 const SPRITE_SIZE = 16 * S; // 64px on screen
 const GROUND_Y = H - 90;
 const player = { x: 100, y: GROUND_Y, w: SPRITE_SIZE - 12, h: SPRITE_SIZE, vy: 0, onGround: true };
-const GRAVITY = 0.55;
-const JUMP_VEL = -11;
+const GRAVITY = 0.45;
+const JUMP_VEL = -15;
+const MOVE_SPEED = 4;
 
 let carrots = [];
 const CARROT_SPEED = 10;
@@ -283,7 +284,7 @@ function startGame() {
     spawnTimer = 0; spawnInterval = 80; shootTimer = 0;
     player.x = 100; player.y = GROUND_Y; player.vy = 0; player.onGround = true;
     document.getElementById("score").textContent = "0";
-    document.getElementById("message").textContent = "UP: jump  |  DOWN: fast fall  |  SPACE: shoot";
+    document.getElementById("message").textContent = "ARROWS: move/jump  |  DOWN: fast fall  |  SPACE: shoot";
 }
 
 function overlap(a, b) {
@@ -516,6 +517,12 @@ function update() {
     if (keys["ArrowDown"] && !player.onGround) {
         player.vy += 1.0;
     }
+    if (keys["ArrowRight"]) {
+        player.x = Math.min(player.x + MOVE_SPEED, W - SPRITE_SIZE);
+    }
+    if (keys["ArrowLeft"]) {
+        player.x = Math.max(player.x - MOVE_SPEED, 0);
+    }
     player.vy += GRAVITY;
     player.y += player.vy;
     if (player.y >= GROUND_Y) {
@@ -615,7 +622,7 @@ function draw() {
         ctx.fillText("Shoot carrots at the bunnies", W / 2, H / 2 - 16);
         ctx.fillStyle = "#6a7a6a";
         ctx.font = "9px 'Press Start 2P', monospace";
-        ctx.fillText("UP: jump   DOWN: fast fall   SPACE: shoot", W / 2, H / 2 + 20);
+        ctx.fillText("ARROWS: move/jump   DOWN: fast fall   SPACE: shoot", W / 2, H / 2 + 20);
         ctx.textAlign = "left";
 
         // idle preview sprites
