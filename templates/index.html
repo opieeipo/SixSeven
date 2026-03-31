@@ -222,30 +222,71 @@ let state = "idle";
 let score = 0;
 let hiScore = parseInt(localStorage.getItem("sixseven_hi") || "0");
 let frameCount = 0;
-let speed = 3;
 document.getElementById("hiscore").textContent = hiScore;
 
-// ── entities ────────────────────────────────────────────────
+// ── level / camera ───────────────────────────────────────────
+const LEVEL_WIDTH = 6400;
+const GOAL_X = LEVEL_WIDTH - 300;
+let cameraX = 0;
+
+// ── physics constants ────────────────────────────────────────
 const SPRITE_SIZE = 16 * S; // 64px on screen
-const GROUND_Y = H - 90;
-const player = { x: 100, y: GROUND_Y, w: SPRITE_SIZE - 12, h: SPRITE_SIZE, vy: 0, onGround: true };
+const GROUND_Y = H - 90;    // player.y when standing on ground
 const GRAVITY = 0.45;
 const JUMP_VEL = -15;
 const MOVE_SPEED = 4;
+const PLAT_H = 20;           // visual platform height in pixels
 
+// ── player ───────────────────────────────────────────────────
+// x/y = world X, screen Y. w/h = hitbox size.
+const player = {
+    x: 80, y: GROUND_Y,
+    w: SPRITE_SIZE - 12, h: SPRITE_SIZE,
+    vy: 0, onGround: true, prevY: GROUND_Y
+};
+
+// ── platforms ────────────────────────────────────────────────
+// x/w = world X coords; top = screen Y of walkable top surface.
+// Platform body extends from top downward by PLAT_H pixels.
+// Ground surface is at GROUND_Y + SPRITE_SIZE - 4 = 450.
+// elevation = 450 - top  (how high above ground the platform is)
+const PLATFORMS = [
+    { x: 320,  top: 360, w: 160 }, // elev  90
+    { x: 560,  top: 290, w: 128 }, // elev 160
+    { x: 780,  top: 360, w: 192 }, // elev  90
+    { x: 1080, top: 320, w: 160 }, // elev 130
+    { x: 1300, top: 250, w: 128 }, // elev 200
+    { x: 1520, top: 320, w: 96  }, // elev 130
+    { x: 1720, top: 360, w: 192 }, // elev  90
+    { x: 2000, top: 290, w: 128 }, // elev 160
+    { x: 2210, top: 220, w: 96  }, // elev 230
+    { x: 2440, top: 350, w: 160 }, // elev 100
+    { x: 2680, top: 280, w: 128 }, // elev 170
+    { x: 2900, top: 210, w: 96  }, // elev 240
+    { x: 3140, top: 290, w: 192 }, // elev 160
+    { x: 3410, top: 230, w: 128 }, // elev 220
+    { x: 3640, top: 295, w: 96  }, // elev 155
+    { x: 3890, top: 350, w: 160 }, // elev 100
+    { x: 4130, top: 280, w: 128 }, // elev 170
+    { x: 4360, top: 210, w: 96  }, // elev 240
+    { x: 4620, top: 320, w: 192 }, // elev 130
+    { x: 4910, top: 250, w: 128 }, // elev 200
+    { x: 5140, top: 320, w: 96  }, // elev 130
+    { x: 5390, top: 250, w: 160 }, // elev 200
+    { x: 5640, top: 320, w: 128 }, // elev 130
+    { x: 5890, top: 360, w: 192 }, // elev  90
+];
+
+// ── projectiles / enemies ─────────────────────────────────────
 let carrots = [];
 const CARROT_SPEED = 10;
 const SHOOT_COOLDOWN = 14;
 let shootTimer = 0;
 
 let bunnies = [];
-let spawnTimer = 0;
-let spawnInterval = 80;
-
 let particles = [];
-let groundOffset = 0;
 
-// ── clouds ──────────────────────────────────────────────────
+// ── clouds (screen-space parallax) ───────────────────────────
 let clouds = [];
 for (let i = 0; i < 6; i++) {
     clouds.push({
@@ -257,34 +298,59 @@ for (let i = 0; i < 6; i++) {
     });
 }
 
-// ── bushes ──────────────────────────────────────────────────
+// ── bushes (world-space) ──────────────────────────────────────
 let bushes = [];
-for (let i = 0; i < 7; i++) {
+for (let i = 0; i < 60; i++) {
     bushes.push({
-        x: Math.random() * W,
+        x: 40 + i * (LEVEL_WIDTH / 60) + Math.random() * 80,
         size: 14 + Math.random() * 22,
         shade: Math.random() > 0.5 ? "#2a4a28" : "#1e3a1c",
     });
 }
 
-// ── input ───────────────────────────────────────────────────
+// ── input ─────────────────────────────────────────────────────
 const keys = {};
 document.addEventListener("keydown", e => {
     keys[e.code] = true;
     if (e.code === "Space") e.preventDefault();
-    if ((state === "idle" || state === "dead") && e.code === "Space") startGame();
+    if ((state === "idle" || state === "dead" || state === "win") && e.code === "Space") startGame();
 });
 document.addEventListener("keyup", e => { keys[e.code] = false; });
 
-// ── helpers ─────────────────────────────────────────────────
+// ── helpers ───────────────────────────────────────────────────
+function makeBunnies() {
+    let list = [];
+    // Ground bunnies at fixed world X positions
+    let groundXs = [420,680,920,1160,1460,1680,1940,2190,2380,2620,
+                    2870,3080,3320,3580,3840,4080,4340,4580,4870,5080,
+                    5340,5580,5840,6080];
+    for (let x of groundXs) {
+        list.push({ x, y: GROUND_Y, w: SPRITE_SIZE - 8, h: SPRITE_SIZE, alive: true });
+    }
+    // Platform bunnies — placed on top of select platforms
+    for (let pi of [1, 4, 7, 11, 14, 19]) {
+        if (!PLATFORMS[pi]) continue;
+        let plat = PLATFORMS[pi];
+        list.push({
+            x: plat.x + plat.w / 2 - (SPRITE_SIZE - 8) / 2,
+            y: plat.top - SPRITE_SIZE,
+            w: SPRITE_SIZE - 8, h: SPRITE_SIZE, alive: true
+        });
+    }
+    return list;
+}
+
 function startGame() {
     state = "running";
-    score = 0; speed = 3; frameCount = 0;
-    carrots = []; bunnies = []; particles = [];
-    spawnTimer = 0; spawnInterval = 80; shootTimer = 0;
-    player.x = 100; player.y = GROUND_Y; player.vy = 0; player.onGround = true;
+    score = 0; frameCount = 0;
+    carrots = []; particles = [];
+    shootTimer = 0; cameraX = 0;
+    player.x = 80; player.y = GROUND_Y; player.vy = 0;
+    player.onGround = true; player.prevY = GROUND_Y;
+    bunnies = makeBunnies();
     document.getElementById("score").textContent = "0";
-    document.getElementById("message").textContent = "ARROWS: move/jump  |  DOWN: fast fall  |  SPACE: shoot";
+    document.getElementById("message").textContent =
+        "ARROWS: move/jump  |  DOWN: fast fall  |  SPACE: shoot";
 }
 
 function overlap(a, b) {
@@ -306,7 +372,55 @@ function roundRect(x, y, w, h, r) {
     ctx.fill();
 }
 
-// ── background drawing ──────────────────────────────────────
+// ── platform collision ────────────────────────────────────────
+// Called after gravity is applied and ground check is done.
+// Resolves player vs all platforms in world space.
+function resolvePlatforms() {
+    let pLeft  = player.x + 10;
+    let pRight = player.x + player.w - 4;
+    let pTop   = player.y;
+    let pBot   = player.y + SPRITE_SIZE;
+    let prevBot = player.prevY + SPRITE_SIZE;
+
+    for (let plat of PLATFORMS) {
+        // Horizontal cull (world X)
+        if (pRight <= plat.x || pLeft >= plat.x + plat.w) continue;
+
+        let surf = plat.top;              // screen Y of walkable top
+        let bot  = plat.top + PLAT_H;    // screen Y of platform underside
+
+        // ── Land on top: falling player whose feet crossed the surface
+        if (player.vy >= 0 && prevBot <= surf + 6 && pBot >= surf) {
+            if (player.vy > 3) spawnDust(player.x - cameraX + 28, surf);
+            player.y = surf - SPRITE_SIZE;
+            player.vy = 0;
+            player.onGround = true;
+            return; // one platform per frame
+        }
+
+        // ── Bump head: rising player whose head crossed the underside
+        if (player.vy < 0 && pTop <= bot && player.prevY >= bot) {
+            player.y = bot;
+            player.vy = 0;
+            return;
+        }
+
+        // ── Side block: player body overlaps platform sides
+        if (pBot > surf + 4 && pTop < bot - 2) {
+            let overlapL = pRight - plat.x;
+            let overlapR = (plat.x + plat.w) - pLeft;
+            if (overlapL > 0 && overlapR > 0) {
+                if (overlapL <= overlapR && overlapL < 20) {
+                    player.x -= overlapL;
+                } else if (overlapR < overlapL && overlapR < 20) {
+                    player.x += overlapR;
+                }
+            }
+        }
+    }
+}
+
+// ── background drawing ────────────────────────────────────────
 function drawSky() {
     let grad = ctx.createLinearGradient(0, 0, 0, H);
     grad.addColorStop(0, "#16213e");
@@ -315,7 +429,7 @@ function drawSky() {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, W, H);
 
-    // stars
+    // twinkling stars
     ctx.fillStyle = "#fff";
     let seed = 42;
     for (let i = 0; i < 35; i++) {
@@ -340,15 +454,19 @@ function drawClouds() {
 }
 
 function drawBushes() {
-    for (let b of bushes) {
-        b.x -= speed * 0.25;
-        if (b.x + b.size < 0) b.x = W + Math.random() * 120;
-        ctx.fillStyle = b.shade;
-        roundRect(b.x, GROUND_Y + SPRITE_SIZE - b.size * 0.5, b.size, b.size * 0.6, b.size * 0.25);
+    for (let bu of bushes) {
+        let sx = bu.x - cameraX;
+        if (sx + bu.size < 0 || sx > W) continue;
+        ctx.fillStyle = bu.shade;
+        roundRect(sx, GROUND_Y + SPRITE_SIZE - bu.size * 0.5, bu.size, bu.size * 0.6, bu.size * 0.25);
     }
 }
 
 function drawGround() {
+    let offA = cameraX % 8;
+    let offB = cameraX % 20;
+    let offC = cameraX % 60;
+
     // grass top
     ctx.fillStyle = "#4a7a3b";
     ctx.fillRect(0, GROUND_Y + SPRITE_SIZE - 4, W, 8);
@@ -357,8 +475,8 @@ function drawGround() {
 
     // grass tufts
     for (let i = 0; i < W + 12; i += 8) {
-        let gx = i - (groundOffset % 8);
-        let seed = (Math.floor((gx + groundOffset) / 8) * 7) % 4;
+        let gx = i - offA;
+        let seed = (Math.floor((gx + cameraX) / 8) * 7) % 4;
         let grassH = 4 + seed * 3;
         let color = ["#4a7a3b", "#5c9e48", "#3d6630", "#5c9e48"][seed];
         ctx.fillStyle = color;
@@ -370,15 +488,15 @@ function drawGround() {
     ctx.fillRect(0, GROUND_Y + SPRITE_SIZE + 6, W, H);
     ctx.fillStyle = "#4a3025";
     for (let i = 0; i < W + 20; i += 20) {
-        let gx = i - (groundOffset % 20);
+        let gx = i - offB;
         ctx.fillRect(gx, GROUND_Y + SPRITE_SIZE + 14, 10, 3);
         ctx.fillRect(gx + 8, GROUND_Y + SPRITE_SIZE + 22, 8, 2);
     }
 
     // flowers
     for (let i = 0; i < W + 40; i += 60) {
-        let fx = i - (groundOffset % 60);
-        let seed2 = Math.floor((fx + groundOffset) / 60) % 5;
+        let fx = i - offC;
+        let seed2 = Math.floor((fx + cameraX) / 60) % 5;
         if (seed2 < 2) {
             let fc = seed2 === 0 ? "#ff6090" : "#ffe060";
             ctx.fillStyle = fc;
@@ -393,49 +511,127 @@ function drawGround() {
     }
 }
 
-// ── draw entities using sprite data ─────────────────────────
-function drawPlayerSprite(p) {
-    // shadow
+function drawPlatforms() {
+    for (let plat of PLATFORMS) {
+        let sx = plat.x - cameraX;
+        if (sx + plat.w < 0 || sx > W) continue;
+
+        // grass top
+        ctx.fillStyle = "#4a7a3b";
+        ctx.fillRect(sx, plat.top, plat.w, 6);
+        ctx.fillStyle = "#3d6630";
+        ctx.fillRect(sx, plat.top + 4, plat.w, 4);
+
+        // dirt body
+        ctx.fillStyle = "#5c3d2e";
+        ctx.fillRect(sx, plat.top + 7, plat.w, PLAT_H - 7);
+        ctx.fillStyle = "#4a3025";
+        ctx.fillRect(sx + 4, plat.top + 12, Math.max(0, plat.w - 8), 3);
+
+        // grass tufts along top
+        ctx.fillStyle = "#5c9e48";
+        for (let gx = sx + 2; gx < sx + plat.w - 2; gx += 6) {
+            let grassH = 3 + ((Math.floor(gx + cameraX) * 7) % 3);
+            ctx.fillRect(gx, plat.top - grassH + 2, 3, grassH);
+        }
+    }
+}
+
+function drawGoal() {
+    let sx = GOAL_X - cameraX;
+    if (sx + 100 < 0 || sx > W + 20) return;
+
+    // post
+    ctx.fillStyle = "#8B6340";
+    ctx.fillRect(sx + 28, GROUND_Y - 50, 8, SPRITE_SIZE + 54);
+    ctx.fillStyle = "#6B4820";
+    ctx.fillRect(sx + 32, GROUND_Y - 50, 4, SPRITE_SIZE + 54);
+
+    // sign board
+    ctx.fillStyle = "#F0C060";
+    ctx.fillRect(sx, GROUND_Y - 76, 80, 36);
+    ctx.fillStyle = "#D0A040";
+    ctx.fillRect(sx, GROUND_Y - 76, 80, 4);
+    ctx.fillRect(sx, GROUND_Y - 76, 4, 36);
+    ctx.fillRect(sx + 76, GROUND_Y - 76, 4, 36);
+    ctx.fillRect(sx, GROUND_Y - 44, 80, 4);
+
+    ctx.fillStyle = "#5c3d2e";
+    ctx.font = "8px 'Press Start 2P', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("GOAL!", sx + 40, GROUND_Y - 52);
+    ctx.textAlign = "left";
+
+    // small carrot icon on sign
+    drawSprite(CARROT_SPRITE, sx + 12, GROUND_Y - 44, 2);
+}
+
+function drawProgressBar() {
+    let progress = Math.min(1, player.x / GOAL_X);
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(10, 8, W - 20, 10);
+    ctx.fillStyle = "#5c9e48";
+    ctx.fillRect(10, 8, (W - 20) * progress, 10);
+    // marker dot
+    ctx.fillStyle = "#ffd866";
+    ctx.fillRect(10 + (W - 20) * progress - 2, 5, 4, 16);
+    // label
+    ctx.fillStyle = "#8ba";
+    ctx.font = "7px 'Press Start 2P', monospace";
+    ctx.textAlign = "right";
+    ctx.fillText("GOAL", W - 14, 16);
+    ctx.textAlign = "left";
+}
+
+// ── draw entities using sprite data ──────────────────────────
+function drawPlayerSprite(pl) {
+    let sx = pl.x - cameraX;
+    // shadow at feet
     ctx.globalAlpha = 0.2;
     ctx.fillStyle = "#000";
-    roundRect(p.x, GROUND_Y + SPRITE_SIZE - 4, SPRITE_SIZE - 8, 8, 4);
+    roundRect(sx, pl.y + SPRITE_SIZE - 4, SPRITE_SIZE - 8, 8, 4);
     ctx.globalAlpha = 1;
 
     let frame;
-    if (!p.onGround) {
+    if (!pl.onGround) {
         frame = FARMER_SPRITE;
     } else {
         frame = (Math.floor(frameCount / 8) % 2 === 0) ? FARMER_SPRITE : FARMER_WALK;
     }
-    drawSprite(frame, p.x, p.y, S);
+    drawSprite(frame, sx, pl.y, S);
 }
 
 function drawCarrotSprite(c) {
+    let sx = c.x - cameraX;
+    if (sx < -SPRITE_SIZE || sx > W) return;
     let wobble = Math.sin(frameCount * 0.5 + c.x * 0.05) * 2;
-    drawSprite(CARROT_SPRITE, c.x, c.y + wobble, S);
+    drawSprite(CARROT_SPRITE, sx, c.y + wobble, S);
 }
 
-function drawBunnySprite(b) {
-    // shadow
+function drawBunnySprite(bu) {
+    let sx = bu.x - cameraX;
+    if (sx < -SPRITE_SIZE || sx > W) return;
+
     ctx.globalAlpha = 0.15;
     ctx.fillStyle = "#000";
-    roundRect(b.x + 4, GROUND_Y + SPRITE_SIZE - 4, SPRITE_SIZE - 12, 6, 3);
+    roundRect(sx + 4, bu.y + SPRITE_SIZE - 4, SPRITE_SIZE - 12, 6, 3);
     ctx.globalAlpha = 1;
 
     let hop = Math.floor(frameCount / 10) % 4;
     let hopY = (hop === 1) ? -6 : (hop === 3) ? -3 : 0;
     let frame = (hop === 1 || hop === 3) ? BUNNY_HOP : BUNNY_SPRITE;
-    drawSprite(frame, b.x, b.y + hopY, S);
+    drawSprite(frame, sx, bu.y + hopY, S);
 }
 
-// ── particles ───────────────────────────────────────────────
+// ── particles ─────────────────────────────────────────────────
+// Particles use screen-space coords (pass screen X when spawning).
 function spawnPoof(x, y) {
     let colors = ["#fff", "#ffd866", "#ff9040", "#fff8e0", "#ffa"];
     for (let i = 0; i < 14; i++) {
         let angle = (i / 14) * Math.PI * 2 + Math.random() * 0.5;
         let spd = 1.5 + Math.random() * 3.5;
         particles.push({
-            x: x, y: y,
+            x, y,
             vx: Math.cos(angle) * spd,
             vy: Math.sin(angle) * spd - 1,
             life: 16 + Math.random() * 10,
@@ -445,7 +641,7 @@ function spawnPoof(x, y) {
         });
     }
     particles.push({
-        x: x, y: y - 14, vx: 0, vy: -1.5,
+        x, y: y - 14, vx: 0, vy: -1.5,
         life: 35, maxLife: 35, size: 0, color: "#ffd866",
         text: "+10",
     });
@@ -454,7 +650,7 @@ function spawnPoof(x, y) {
 function spawnDust(x, y) {
     for (let i = 0; i < 4; i++) {
         particles.push({
-            x: x, y: y,
+            x, y,
             vx: -1.5 + Math.random() * 3,
             vy: -Math.random() * 2.5,
             life: 10 + Math.random() * 6,
@@ -466,117 +662,130 @@ function spawnDust(x, y) {
 }
 
 function updateParticles() {
-    for (let p of particles) {
-        p.x += p.vx;
-        p.y += p.vy;
-        if (!p.text) p.vy += 0.08;
-        p.life--;
+    for (let pt of particles) {
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        if (!pt.text) pt.vy += 0.08;
+        pt.life--;
     }
-    particles = particles.filter(p => p.life > 0);
+    particles = particles.filter(pt => pt.life > 0);
 }
 
 function drawParticles() {
-    for (let p of particles) {
-        let alpha = Math.min(1, p.life / (p.maxLife * 0.4));
+    for (let pt of particles) {
+        let alpha = Math.min(1, pt.life / (pt.maxLife * 0.4));
         ctx.globalAlpha = alpha;
-        if (p.text) {
-            ctx.fillStyle = p.color;
+        if (pt.text) {
+            ctx.fillStyle = pt.color;
             ctx.font = "bold 14px 'Press Start 2P', monospace";
             ctx.textAlign = "center";
-            ctx.fillText(p.text, p.x, p.y);
+            ctx.fillText(pt.text, pt.x, pt.y);
             ctx.textAlign = "left";
         } else {
-            ctx.fillStyle = p.color;
-            ctx.fillRect(Math.round(p.x), Math.round(p.y), p.size, p.size);
+            ctx.fillStyle = pt.color;
+            ctx.fillRect(Math.round(pt.x), Math.round(pt.y), pt.size, pt.size);
         }
     }
     ctx.globalAlpha = 1;
 }
 
-// ── game loop ───────────────────────────────────────────────
+// ── game loop ─────────────────────────────────────────────────
 function update() {
     if (state !== "running") return;
     frameCount++;
-    groundOffset += speed;
 
-    if (frameCount % 300 === 0) {
-        speed = Math.min(speed + 0.25, 8);
-        spawnInterval = Math.max(spawnInterval - 4, 35);
-    }
-
+    // Time-based score
     if (frameCount % 10 === 0) {
         score++;
         document.getElementById("score").textContent = score;
     }
 
-    // player
-    if (keys["ArrowUp"] && player.onGround) {
-        player.vy = JUMP_VEL;
-        player.onGround = false;
-    }
-    if (keys["ArrowDown"] && !player.onGround) {
-        player.vy += 1.0;
-    }
+    // Store previous Y for collision
+    player.prevY = player.y;
+
+    // Horizontal movement
     if (keys["ArrowRight"]) {
-        player.x = Math.min(player.x + MOVE_SPEED, W - SPRITE_SIZE);
+        player.x = Math.min(player.x + MOVE_SPEED, LEVEL_WIDTH - SPRITE_SIZE);
     }
     if (keys["ArrowLeft"]) {
         player.x = Math.max(player.x - MOVE_SPEED, 0);
     }
+
+    // Jump
+    if (keys["ArrowUp"] && player.onGround) {
+        player.vy = JUMP_VEL;
+        player.onGround = false;
+    }
+    // Fast fall
+    if (keys["ArrowDown"] && !player.onGround) {
+        player.vy += 1.0;
+    }
+
+    // Apply gravity
     player.vy += GRAVITY;
     player.y += player.vy;
+    player.onGround = false;
+
+    // Ground collision
     if (player.y >= GROUND_Y) {
-        if (!player.onGround && player.vy > 3) spawnDust(player.x + 28, GROUND_Y + SPRITE_SIZE - 6);
+        if (player.vy > 3) spawnDust(player.x - cameraX + 28, GROUND_Y + SPRITE_SIZE - 6);
         player.y = GROUND_Y;
         player.vy = 0;
         player.onGround = true;
     }
 
-    // shooting
+    // Platform collision
+    resolvePlatforms();
+
+    // Update camera (player at ~W/3 from left, clamped to level bounds)
+    let targetCam = player.x - W / 3;
+    cameraX = Math.max(0, Math.min(targetCam, LEVEL_WIDTH - W));
+
+    // Shooting
     if (shootTimer > 0) shootTimer--;
     if (keys["Space"] && shootTimer === 0) {
-        carrots.push({ x: player.x + SPRITE_SIZE, y: player.y + 30, w: SPRITE_SIZE, h: 6 * S });
+        carrots.push({
+            x: player.x + SPRITE_SIZE,
+            y: player.y + 30,
+            w: SPRITE_SIZE, h: 6 * S
+        });
         shootTimer = SHOOT_COOLDOWN;
     }
 
-    // carrots
+    // Move carrots (world space)
     for (let c of carrots) c.x += CARROT_SPEED;
-    carrots = carrots.filter(c => c.x < W + 20);
+    carrots = carrots.filter(c => c.x < player.x + W);
 
-    // spawn bunnies
-    spawnTimer++;
-    if (spawnTimer >= spawnInterval) {
-        spawnTimer = 0;
-        let by = GROUND_Y + (Math.random() > 0.25 ? 0 : -Math.random() * 40);
-        bunnies.push({ x: W + 10, y: by, w: SPRITE_SIZE - 8, h: SPRITE_SIZE, alive: true });
-    }
-
-    // bunnies
-    for (let b of bunnies) b.x -= speed + 1.5;
-    bunnies = bunnies.filter(b => b.x > -SPRITE_SIZE);
-
-    // carrot vs bunny
+    // Carrot vs bunny
     for (let c of carrots) {
-        for (let b of bunnies) {
-            if (b.alive && overlap(c, b)) {
-                b.alive = false;
-                c.x = W + 200;
+        for (let bu of bunnies) {
+            if (bu.alive && overlap(c, bu)) {
+                bu.alive = false;
+                c.x = LEVEL_WIDTH + 200;
                 score += 10;
                 document.getElementById("score").textContent = score;
-                spawnPoof(b.x + SPRITE_SIZE / 2, b.y + SPRITE_SIZE / 2);
+                spawnPoof(bu.x - cameraX + SPRITE_SIZE / 2, bu.y + SPRITE_SIZE / 2);
             }
         }
     }
-    bunnies = bunnies.filter(b => b.alive);
+    bunnies = bunnies.filter(bu => bu.alive);
 
-    // player vs bunny (tighter hitboxes)
+    // Player vs bunny (tighter hitboxes, world space)
     let pH = { x: player.x + 12, y: player.y + 8, w: player.w - 20, h: player.h - 12 };
-    for (let b of bunnies) {
-        let bH = { x: b.x + 8, y: b.y + 8, w: b.w - 12, h: b.h - 12 };
+    for (let bu of bunnies) {
+        let sx = bu.x - cameraX;
+        if (sx < -SPRITE_SIZE || sx > W + SPRITE_SIZE) continue;
+        let bH = { x: bu.x + 8, y: bu.y + 8, w: bu.w - 12, h: bu.h - 12 };
         if (overlap(pH, bH)) {
             die();
             return;
         }
+    }
+
+    // Win condition: reach the goal
+    if (player.x + SPRITE_SIZE / 2 >= GOAL_X) {
+        winGame();
+        return;
     }
 
     updateParticles();
@@ -584,11 +793,12 @@ function update() {
 
 function die() {
     state = "dead";
+    let deathSX = player.x - cameraX;
     for (let i = 0; i < 24; i++) {
         let angle = Math.random() * Math.PI * 2;
         let spd = 1 + Math.random() * 4;
         particles.push({
-            x: player.x + 28, y: player.y + 32,
+            x: deathSX + 28, y: player.y + 32,
             vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd - 2,
             life: 22 + Math.random() * 15, maxLife: 37,
             size: S + Math.random() * S,
@@ -602,6 +812,34 @@ function die() {
     }
     document.getElementById("message").textContent =
         "GAME OVER \u2014 SCORE: " + score + " \u2014 PRESS SPACE TO RESTART";
+}
+
+function winGame() {
+    state = "win";
+    score += 100;
+    document.getElementById("score").textContent = score;
+    if (score > hiScore) {
+        hiScore = score;
+        localStorage.setItem("sixseven_hi", hiScore);
+        document.getElementById("hiscore").textContent = hiScore;
+    }
+    // Celebration burst
+    for (let i = 0; i < 30; i++) {
+        let angle = Math.random() * Math.PI * 2;
+        let spd = 2 + Math.random() * 5;
+        particles.push({
+            x: W / 2 + (Math.random() - 0.5) * 200,
+            y: H / 2,
+            vx: Math.cos(angle) * spd,
+            vy: Math.sin(angle) * spd - 3,
+            life: 30 + Math.random() * 20,
+            maxLife: 50,
+            size: S + Math.random() * S * 2,
+            color: ["#ffd866","#ff9040","#50ff80","#80d8ff","#ff80d0"][Math.floor(Math.random() * 5)],
+        });
+    }
+    document.getElementById("message").textContent =
+        "YOU WIN! SCORE: " + score + " \u2014 PRESS SPACE TO RESTART";
 }
 
 function draw() {
@@ -619,7 +857,7 @@ function draw() {
         ctx.fillStyle = "#8ba";
         ctx.font = "11px 'Press Start 2P', monospace";
         ctx.fillText("Defend your garden!", W / 2, H / 2 - 38);
-        ctx.fillText("Shoot carrots at the bunnies", W / 2, H / 2 - 16);
+        ctx.fillText("Reach the GOAL to win!", W / 2, H / 2 - 16);
         ctx.fillStyle = "#6a7a6a";
         ctx.font = "9px 'Press Start 2P', monospace";
         ctx.fillText("ARROWS: move/jump   DOWN: fast fall   SPACE: shoot", W / 2, H / 2 + 20);
@@ -631,12 +869,15 @@ function draw() {
         return;
     }
 
+    drawPlatforms();
     drawBushes();
     drawGround();
+    drawGoal();
     drawPlayerSprite(player);
     for (let c of carrots) drawCarrotSprite(c);
-    for (let b of bunnies) drawBunnySprite(b);
+    for (let bu of bunnies) drawBunnySprite(bu);
     drawParticles();
+    drawProgressBar();
 
     if (state === "dead") {
         ctx.fillStyle = "rgba(0,0,0,0.55)";
@@ -648,11 +889,28 @@ function draw() {
         ctx.fillStyle = "#ffd866";
         ctx.font = "14px 'Press Start 2P', monospace";
         ctx.fillText("SCORE: " + score, W / 2, H / 2 + 14);
-        if (score >= hiScore) {
+        if (score >= hiScore && hiScore > 0) {
             ctx.fillStyle = "#50ff80";
             ctx.font = "10px 'Press Start 2P', monospace";
             ctx.fillText("NEW BEST!", W / 2, H / 2 + 40);
         }
+        ctx.textAlign = "left";
+        drawParticles();
+    }
+
+    if (state === "win") {
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#ffd866";
+        ctx.font = "28px 'Press Start 2P', monospace";
+        ctx.textAlign = "center";
+        ctx.fillText("YOU WIN!", W / 2, H / 2 - 30);
+        ctx.fillStyle = "#50ff80";
+        ctx.font = "14px 'Press Start 2P', monospace";
+        ctx.fillText("SCORE: " + score, W / 2, H / 2 + 14);
+        ctx.fillStyle = "#8ba";
+        ctx.font = "10px 'Press Start 2P', monospace";
+        ctx.fillText("PRESS SPACE TO PLAY AGAIN", W / 2, H / 2 + 44);
         ctx.textAlign = "left";
         drawParticles();
     }
