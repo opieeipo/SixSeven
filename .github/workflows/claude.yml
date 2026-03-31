@@ -52,3 +52,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          custom_instructions: |
+            After making any code changes, always update README.md to reflect
+            new features, enemies, mechanics, controls, or other player-facing
+            changes. Keep the README accurate and up to date.
