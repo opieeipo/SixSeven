@@ -109,6 +109,24 @@ const s = "#ffc070"; // carrot highlight
 const t = "#3da040"; // leaf 1
 const T = "#50c050"; // leaf 2
 
+// tortoise
+const to1 = "#3a6828"; // shell dark
+const to2 = "#5a9838"; // shell light
+const to3 = "#c8a050"; // skin
+const to4 = "#202020"; // eye
+
+// fox
+const fo1 = "#d06020"; // orange fur
+const fo2 = "#a04010"; // dark fur
+const fo3 = "#fff0e0"; // white muzzle
+const fo4 = "#202020"; // eye/nose
+
+// crow
+const cr1 = "#1a1a20"; // black feather
+const cr2 = "#3a3a48"; // wing highlight
+const cr3 = "#e0c020"; // beak
+const cr4 = "#e03030"; // eye
+
 // ── 16x16 sprite data ───────────────────────────────────────
 // Farmer (facing right) — 16 wide x 16 tall
 const FARMER_SPRITE = [
@@ -187,6 +205,86 @@ const BUNNY_HOP = [
     [_,_,_,k,K,k,_,_,k,K,k,_,_,_,_,_],
     [_,_,k,K,k,_,_,_,_,k,K,k,_,_,_,_],
     [_,_,m,m,_,_,_,_,_,_,m,m,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+];
+
+// Tortoise — 16 wide x 16 tall (slow armored enemy, 2 hp)
+const TORTOISE_SPRITE = [
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+    [_,_,_,_,_,to3,to3,to3,_,_,_,_,_,_,_,_],
+    [_,_,_,_,to3,to4,to3,to3,to3,_,_,_,_,_,_,_],
+    [_,_,_,to1,to1,to1,to1,to1,to1,to1,to1,_,_,_,_,_],
+    [_,_,to1,to2,to2,to1,to2,to1,to2,to2,to1,_,_,_,_,_],
+    [_,_,to1,to2,to1,to2,to2,to2,to1,to2,to1,_,_,_,_,_],
+    [_,_,to1,to1,to2,to2,to1,to2,to2,to1,to1,_,_,_,_,_],
+    [_,_,to1,to2,to1,to2,to2,to2,to1,to2,to1,_,_,_,_,_],
+    [_,_,to1,to2,to2,to1,to2,to1,to2,to2,to1,_,_,_,_,_],
+    [_,_,_,to1,to1,to1,to1,to1,to1,to1,to1,_,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+    [_,_,to3,_,_,_,_,_,_,_,to3,_,_,_,_,_],
+    [_,to3,to4,_,_,_,_,_,_,_,to4,to3,_,_,_,_],
+    [_,to4,to3,_,_,_,_,_,_,_,to3,to4,_,_,_,_],
+    [_,_,to4,_,_,_,_,_,_,_,_,to4,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+];
+
+// Fox — 16 wide x 16 tall (fast charging enemy)
+const FOX_SPRITE = [
+    [_,_,fo1,_,_,_,_,_,_,_,_,fo1,_,_,_,_],
+    [_,_,fo1,fo1,_,_,_,_,_,_,fo1,fo1,_,_,_,_],
+    [_,_,fo2,fo1,fo1,fo1,fo1,fo1,fo1,fo1,fo1,fo2,_,_,_,_],
+    [_,_,_,fo2,fo1,fo1,fo1,fo1,fo1,fo1,fo2,_,_,_,_,_],
+    [_,_,_,fo1,fo3,fo4,fo1,fo1,fo4,fo3,fo1,_,_,_,_,_],
+    [_,_,_,fo1,fo1,fo1,fo1,fo1,fo1,fo1,fo1,_,_,_,_,_],
+    [_,_,_,_,fo3,fo3,fo4,fo3,fo3,_,_,_,_,_,_,_],
+    [_,_,_,fo1,fo1,fo1,fo1,fo1,fo1,fo1,fo1,_,_,_,_,_],
+    [_,_,_,fo1,fo2,fo1,fo1,fo1,fo2,fo1,fo1,_,_,_,_,_],
+    [_,_,_,fo2,fo1,fo1,fo1,fo1,fo1,fo1,fo2,_,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+    [_,_,fo1,fo1,_,_,_,_,_,fo1,fo1,_,_,_,_,_],
+    [_,fo1,fo2,fo1,_,_,_,_,_,fo1,fo2,fo1,_,_,_,_],
+    [_,fo2,fo1,_,_,_,_,_,_,_,fo1,fo2,_,_,_,_],
+    [_,fo2,fo2,_,_,_,_,_,_,_,fo2,fo2,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+];
+
+// Crow — 16 wide x 16 tall (flying enemy, wings spread)
+const CROW_SPRITE = [
+    [_,_,_,_,_,_,_,cr1,_,_,_,_,_,_,_,_],
+    [_,_,_,_,_,_,cr1,cr2,cr1,_,_,_,_,_,_,_],
+    [_,_,_,_,_,cr1,cr2,cr4,cr1,_,_,_,_,_,_,_],
+    [_,_,_,_,_,cr1,cr1,cr1,cr3,cr3,_,_,_,_,_,_],
+    [cr1,cr2,cr1,cr2,cr1,cr1,cr1,cr1,cr2,cr1,cr2,cr1,_,_,_,_],
+    [cr2,cr1,cr2,cr1,cr2,cr1,cr1,cr2,cr1,cr2,cr1,cr2,cr1,_,_,_],
+    [_,cr1,cr2,cr1,cr1,cr1,cr1,cr1,cr1,cr2,cr1,_,_,_,_,_],
+    [_,_,_,_,_,cr1,cr1,cr1,_,_,_,_,_,_,_,_],
+    [_,_,_,_,_,cr1,cr2,cr1,_,_,_,_,_,_,_,_],
+    [_,_,_,_,cr1,cr1,cr1,cr1,cr1,_,_,_,_,_,_,_],
+    [_,_,_,_,_,cr1,_,cr1,_,_,_,_,_,_,_,_],
+    [_,_,_,_,cr1,_,_,_,cr1,_,_,_,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+];
+
+// Crow flap frame (wings lowered)
+const CROW_FLAP = [
+    [_,_,_,_,_,_,_,cr1,_,_,_,_,_,_,_,_],
+    [_,_,_,_,_,_,cr1,cr2,cr1,_,_,_,_,_,_,_],
+    [_,_,_,_,_,cr1,cr2,cr4,cr1,_,_,_,_,_,_,_],
+    [_,_,_,_,_,cr1,cr1,cr1,cr3,cr3,_,_,_,_,_,_],
+    [_,_,_,cr1,cr2,cr1,cr1,cr1,cr1,cr2,cr1,_,_,_,_,_],
+    [_,_,cr1,cr2,cr1,cr2,cr1,cr1,cr2,cr1,cr2,cr1,_,_,_,_],
+    [_,_,_,cr1,cr2,cr1,cr1,cr1,cr1,cr2,cr1,_,_,_,_,_],
+    [_,_,_,_,_,cr1,cr1,cr1,_,_,_,_,_,_,_,_],
+    [_,_,_,_,_,cr1,cr2,cr1,_,_,_,_,_,_,_,_],
+    [_,_,_,_,cr1,cr1,cr1,cr1,cr1,_,_,_,_,_,_,_],
+    [_,_,_,_,_,cr1,_,cr1,_,_,_,_,_,_,_,_],
+    [_,_,_,_,cr1,_,_,_,cr1,_,_,_,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
+    [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
     [_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_],
 ];
 
@@ -283,7 +381,7 @@ const CARROT_SPEED = 10;
 const SHOOT_COOLDOWN = 14;
 let shootTimer = 0;
 
-let bunnies = [];
+let enemies = [];
 let particles = [];
 
 // ── clouds (screen-space parallax) ───────────────────────────
@@ -318,25 +416,69 @@ document.addEventListener("keydown", e => {
 document.addEventListener("keyup", e => { keys[e.code] = false; });
 
 // ── helpers ───────────────────────────────────────────────────
-function makeBunnies() {
+function makeEnemies() {
     let list = [];
-    // Ground bunnies at fixed world X positions
     let groundXs = [420,680,920,1160,1460,1680,1940,2190,2380,2620,
                     2870,3080,3320,3580,3840,4080,4340,4580,4870,5080,
                     5340,5580,5840,6080];
-    for (let x of groundXs) {
-        list.push({ x, y: GROUND_Y, w: SPRITE_SIZE - 8, h: SPRITE_SIZE, alive: true });
+
+    for (let i = 0; i < groundXs.length; i++) {
+        let x = groundXs[i];
+        let speedMult = 1 + (x / LEVEL_WIDTH) * 0.6;
+        let type, hp, speed;
+
+        if (x < 2100) {
+            type = 'bunny'; hp = 1; speed = 0;
+        } else if (x < 4200) {
+            let roll = i % 3;
+            if (roll === 0) { type = 'bunny'; hp = 1; speed = 0; }
+            else if (roll === 1) { type = 'tortoise'; hp = 2; speed = 0.4 * speedMult; }
+            else { type = 'fox'; hp = 1; speed = 1.8 * speedMult; }
+        } else {
+            let roll = i % 3;
+            if (roll === 0) { type = 'tortoise'; hp = 2; speed = 0.5 * speedMult; }
+            else if (roll === 1) { type = 'fox'; hp = 1; speed = 2.2 * speedMult; }
+            else { type = 'bunny'; hp = 1; speed = 0; }
+        }
+
+        list.push({
+            type, x, y: GROUND_Y,
+            w: SPRITE_SIZE - 8, h: SPRITE_SIZE,
+            alive: true, hp, maxHp: hp,
+            speed, vx: 0, flashFrames: 0
+        });
     }
-    // Platform bunnies — placed on top of select platforms
+
+    // Platform bunnies
     for (let pi of [1, 4, 7, 11, 14, 19]) {
         if (!PLATFORMS[pi]) continue;
         let plat = PLATFORMS[pi];
         list.push({
+            type: 'bunny',
             x: plat.x + plat.w / 2 - (SPRITE_SIZE - 8) / 2,
             y: plat.top - SPRITE_SIZE,
-            w: SPRITE_SIZE - 8, h: SPRITE_SIZE, alive: true
+            w: SPRITE_SIZE - 8, h: SPRITE_SIZE,
+            alive: true, hp: 1, maxHp: 1,
+            speed: 0, vx: 0, flashFrames: 0
         });
     }
+
+    // Flying crows in zone 3
+    let crowXs = [3600, 4100, 4600, 5100, 5600, 6050];
+    for (let x of crowXs) {
+        let speedMult = 1 + (x / LEVEL_WIDTH) * 0.6;
+        list.push({
+            type: 'crow',
+            x, y: 150,
+            w: SPRITE_SIZE - 4, h: SPRITE_SIZE - 8,
+            alive: true, hp: 1, maxHp: 1,
+            speed: 0.9 * speedMult, vx: 0,
+            flyBaseY: 120 + Math.random() * 120,
+            flyPhase: Math.random() * Math.PI * 2,
+            flashFrames: 0
+        });
+    }
+
     return list;
 }
 
@@ -347,7 +489,7 @@ function startGame() {
     shootTimer = 0; cameraX = 0;
     player.x = 80; player.y = GROUND_Y; player.vy = 0;
     player.onGround = true; player.prevY = GROUND_Y;
-    bunnies = makeBunnies();
+    enemies = makeEnemies();
     document.getElementById("score").textContent = "0";
     document.getElementById("message").textContent =
         "ARROWS: move/jump  |  DOWN: fast fall  |  SPACE: shoot";
@@ -608,24 +750,56 @@ function drawCarrotSprite(c) {
     drawSprite(CARROT_SPRITE, sx, c.y + wobble, S);
 }
 
-function drawBunnySprite(bu) {
-    let sx = bu.x - cameraX;
-    if (sx < -SPRITE_SIZE || sx > W) return;
+function drawEnemySprite(en) {
+    let sx = en.x - cameraX;
+    if (sx < -SPRITE_SIZE || sx > W + SPRITE_SIZE) return;
 
-    ctx.globalAlpha = 0.15;
-    ctx.fillStyle = "#000";
-    roundRect(sx + 4, bu.y + SPRITE_SIZE - 4, SPRITE_SIZE - 12, 6, 3);
-    ctx.globalAlpha = 1;
+    if (en.type === 'bunny') {
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = "#000";
+        roundRect(sx + 4, en.y + SPRITE_SIZE - 4, SPRITE_SIZE - 12, 6, 3);
+        ctx.globalAlpha = 1;
+        let hop = Math.floor(frameCount / 10) % 4;
+        let hopY = (hop === 1) ? -6 : (hop === 3) ? -3 : 0;
+        let frame = (hop === 1 || hop === 3) ? BUNNY_HOP : BUNNY_SPRITE;
+        drawSprite(frame, sx, en.y + hopY, S);
+    } else if (en.type === 'tortoise') {
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = "#000";
+        roundRect(sx + 4, en.y + SPRITE_SIZE - 4, SPRITE_SIZE - 12, 6, 3);
+        ctx.globalAlpha = 1;
+        let bob = Math.floor(frameCount / 20) % 2 === 0 ? 0 : -2;
+        drawSprite(TORTOISE_SPRITE, sx, en.y + bob, S);
+        // HP bar
+        let barW = en.w;
+        ctx.fillStyle = "#500";
+        ctx.fillRect(sx, en.y - 8, barW, 4);
+        ctx.fillStyle = "#4d0";
+        ctx.fillRect(sx, en.y - 8, barW * (en.hp / en.maxHp), 4);
+    } else if (en.type === 'fox') {
+        ctx.globalAlpha = 0.15;
+        ctx.fillStyle = "#000";
+        roundRect(sx + 4, en.y + SPRITE_SIZE - 4, SPRITE_SIZE - 12, 6, 3);
+        ctx.globalAlpha = 1;
+        let run = Math.floor(frameCount / 4) % 2 === 0 ? 0 : -3;
+        drawSprite(FOX_SPRITE, sx, en.y + run, S);
+    } else if (en.type === 'crow') {
+        let flap = Math.floor(frameCount / 8) % 2 === 0;
+        drawSprite(flap ? CROW_SPRITE : CROW_FLAP, sx, en.y, S);
+    }
 
-    let hop = Math.floor(frameCount / 10) % 4;
-    let hopY = (hop === 1) ? -6 : (hop === 3) ? -3 : 0;
-    let frame = (hop === 1 || hop === 3) ? BUNNY_HOP : BUNNY_SPRITE;
-    drawSprite(frame, sx, bu.y + hopY, S);
+    // Flash white overlay on hit
+    if (en.flashFrames > 0) {
+        ctx.globalAlpha = 0.5 * (en.flashFrames / 12);
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(sx + 2, en.y + 2, en.w, en.h - 4);
+        ctx.globalAlpha = 1;
+    }
 }
 
 // ── particles ─────────────────────────────────────────────────
 // Particles use screen-space coords (pass screen X when spawning).
-function spawnPoof(x, y) {
+function spawnPoof(x, y, pts) {
     let colors = ["#fff", "#ffd866", "#ff9040", "#fff8e0", "#ffa"];
     for (let i = 0; i < 14; i++) {
         let angle = (i / 14) * Math.PI * 2 + Math.random() * 0.5;
@@ -643,7 +817,7 @@ function spawnPoof(x, y) {
     particles.push({
         x, y: y - 14, vx: 0, vy: -1.5,
         life: 35, maxLife: 35, size: 0, color: "#ffd866",
-        text: "+10",
+        text: "+" + (pts || 10),
     });
 }
 
@@ -756,27 +930,58 @@ function update() {
     for (let c of carrots) c.x += CARROT_SPEED;
     carrots = carrots.filter(c => c.x < player.x + W);
 
-    // Carrot vs bunny
+    // Update enemy movement
+    for (let en of enemies) {
+        if (!en.alive) continue;
+        if (en.flashFrames > 0) en.flashFrames--;
+        if (en.type === 'tortoise') {
+            let dir = player.x > en.x ? 1 : -1;
+            en.x += dir * en.speed;
+        } else if (en.type === 'fox') {
+            let dx = player.x - en.x;
+            if (Math.abs(dx) < 350) {
+                let dir = dx > 0 ? 1 : -1;
+                en.vx += dir * 0.4;
+                en.vx = Math.max(-en.speed, Math.min(en.speed, en.vx));
+            } else {
+                en.vx *= 0.9;
+            }
+            en.x += en.vx;
+        } else if (en.type === 'crow') {
+            en.x -= en.speed;
+            en.flyPhase += 0.05;
+            en.y = en.flyBaseY + Math.sin(en.flyPhase) * 30;
+        }
+    }
+
+    // Carrot vs enemy (with hp system)
     for (let c of carrots) {
-        for (let bu of bunnies) {
-            if (bu.alive && overlap(c, bu)) {
-                bu.alive = false;
+        for (let en of enemies) {
+            if (en.alive && overlap(c, en)) {
                 c.x = LEVEL_WIDTH + 200;
-                score += 10;
-                document.getElementById("score").textContent = score;
-                spawnPoof(bu.x - cameraX + SPRITE_SIZE / 2, bu.y + SPRITE_SIZE / 2);
+                en.hp--;
+                if (en.hp <= 0) {
+                    en.alive = false;
+                    let pts = en.type === 'tortoise' ? 20 : en.type === 'fox' ? 15 : en.type === 'crow' ? 15 : 10;
+                    score += pts;
+                    document.getElementById("score").textContent = score;
+                    spawnPoof(en.x - cameraX + SPRITE_SIZE / 2, en.y + SPRITE_SIZE / 2, pts);
+                } else {
+                    en.flashFrames = 12;
+                }
+                break;
             }
         }
     }
-    bunnies = bunnies.filter(bu => bu.alive);
+    enemies = enemies.filter(en => en.alive);
 
-    // Player vs bunny (tighter hitboxes, world space)
+    // Player vs enemy (tighter hitboxes, world space)
     let pH = { x: player.x + 12, y: player.y + 8, w: player.w - 20, h: player.h - 12 };
-    for (let bu of bunnies) {
-        let sx = bu.x - cameraX;
+    for (let en of enemies) {
+        let sx = en.x - cameraX;
         if (sx < -SPRITE_SIZE || sx > W + SPRITE_SIZE) continue;
-        let bH = { x: bu.x + 8, y: bu.y + 8, w: bu.w - 12, h: bu.h - 12 };
-        if (overlap(pH, bH)) {
+        let eH = { x: en.x + 8, y: en.y + 8, w: en.w - 12, h: en.h - 12 };
+        if (overlap(pH, eH)) {
             die();
             return;
         }
@@ -864,8 +1069,11 @@ function draw() {
         ctx.textAlign = "left";
 
         // idle preview sprites
-        drawSprite(FARMER_SPRITE, W / 2 - 130, GROUND_Y, S);
-        drawSprite(BUNNY_SPRITE, W / 2 + 80, GROUND_Y, S);
+        drawSprite(FARMER_SPRITE, W / 2 - 180, GROUND_Y, S);
+        drawSprite(BUNNY_SPRITE, W / 2 + 20, GROUND_Y, S);
+        drawSprite(TORTOISE_SPRITE, W / 2 + 100, GROUND_Y, S);
+        drawSprite(FOX_SPRITE, W / 2 + 180, GROUND_Y, S);
+        drawSprite(CROW_SPRITE, W / 2 + 260, GROUND_Y - 40, S);
         return;
     }
 
@@ -875,7 +1083,7 @@ function draw() {
     drawGoal();
     drawPlayerSprite(player);
     for (let c of carrots) drawCarrotSprite(c);
-    for (let bu of bunnies) drawBunnySprite(bu);
+    for (let en of enemies) drawEnemySprite(en);
     drawParticles();
     drawProgressBar();
 
