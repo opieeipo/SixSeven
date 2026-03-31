@@ -27,7 +27,7 @@ jobs:
       issues: write
       id-token: write
     env:
-      DAILY_LIMIT: 10  # max @claude triggers per day across all users
+      DAILY_LIMIT: 25  # max @claude triggers per day across all users
     steps:
       - name: Check daily rate limit
         env:
