@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SixSeven</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #111;
+            color: #0f0;
+            font-family: "Courier New", monospace;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+        }
+        #header {
+            display: flex;
+            justify-content: space-between;
+            width: 720px;
+            padding: 8px 0;
+            font-size: 18px;
+        }
+        #header span { color: #0f0; }
+        #game-canvas {
+            border: 2px solid #0f0;
+            background: #000;
+            display: block;
+            image-rendering: pixelated;
+        }
+        #message {
+            margin-top: 16px;
+            font-size: 14px;
+            color: #888;
+            height: 20px;
+        }
+        #title {
+            font-size: 36px;
+            margin-bottom: 8px;
+            letter-spacing: 6px;
+            color: #0f0;
+        }
+    </style>
+</head>
+<body>
+    <div id="title">SIXSEVEN</div>
+    <div id="header">
+        <span>SCORE: <strong id="score">0</strong></span>
+        <span>HI: <strong id="hiscore">0</strong></span>
+    </div>
+    <canvas id="game-canvas" width="720" height="320"></canvas>
+    <div id="message">PRESS SPACE TO START &mdash; ARROW KEYS TO MOVE &mdash; SPACE TO SHOOT</div>
+
+<script>
+const canvas = document.getElementById("game-canvas");
+const ctx = canvas.getContext("2d");
+const W = canvas.width;
+const H = canvas.height;
+
+// ── game state ──────────────────────────────────────────────
+let state = "idle";  // idle | running | dead
+let score = 0;
+let hiScore = parseInt(localStorage.getItem("sixseven_hi") || "0");
+let frameCount = 0;
+let speed = 3;
+
+document.getElementById("hiscore").textContent = hiScore;
+
+// ── player (farmer) ─────────────────────────────────────────
+const player = { x: 80, y: H - 60, w: 24, h: 32, vy: 0, onGround: true };
+const GRAVITY = 0.6;
+const JUMP_VEL = -11;
+const GROUND_Y = H - 60;
+
+// ── carrots (projectiles) ───────────────────────────────────
+let carrots = [];
+const CARROT_SPEED = 8;
+const SHOOT_COOLDOWN = 12;
+let shootTimer = 0;
+
+// ── bunnies (enemies) ───────────────────────────────────────
+let bunnies = [];
+let spawnTimer = 0;
+let spawnInterval = 90;
+
+// ── ground ──────────────────────────────────────────────────
+let groundOffset = 0;
+
+// ── input ───────────────────────────────────────────────────
+const keys = {};
+document.addEventListener("keydown", e => {
+    keys[e.code] = true;
+    if (e.code === "Space") e.preventDefault();
+    if (state === "idle" && e.code === "Space") startGame();
+    if (state === "dead" && e.code === "Space") startGame();
+});
+document.addEventListener("keyup", e => { keys[e.code] = false; });
+
+// ── helpers ─────────────────────────────────────────────────
+function startGame() {
+    state = "running";
+    score = 0;
+    speed = 3;
+    frameCount = 0;
+    carrots = [];
+    bunnies = [];
+    spawnTimer = 0;
+    spawnInterval = 90;
+    shootTimer = 0;
+    player.x = 80;
+    player.y = GROUND_Y;
+    player.vy = 0;
+    player.onGround = true;
+    document.getElementById("score").textContent = "0";
+    document.getElementById("message").textContent = "ARROW KEYS TO MOVE \u2014 SPACE TO SHOOT";
+}
+
+function rect(x, y, w, h, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(Math.round(x), Math.round(y), w, h);
+}
+
+function overlap(a, b) {
+    return a.x < b.x + b.w && a.x + a.w > b.x &&
+           a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+// ── draw helpers ────────────────────────────────────────────
+function drawPlayer(p) {
+    // body
+    rect(p.x + 4, p.y, 16, 24, "#0f0");
+    // head
+    rect(p.x + 6, p.y - 10, 12, 12, "#0f0");
+    // legs (animate)
+    if (!p.onGround) {
+        rect(p.x + 5, p.y + 24, 5, 8, "#0f0");
+        rect(p.x + 14, p.y + 24, 5, 8, "#0f0");
+    } else {
+        let step = Math.floor(frameCount / 6) % 2;
+        rect(p.x + 5 + step * 2, p.y + 24, 5, 8, "#0f0");
+        rect(p.x + 14 - step * 2, p.y + 24, 5, 8, "#0f0");
+    }
+    // arm / gun
+    rect(p.x + 20, p.y + 6, 8, 4, "#0f0");
+}
+
+function drawCarrot(c) {
+    // orange carrot body
+    rect(c.x, c.y, 12, 4, "#f80");
+    // green top
+    rect(c.x - 3, c.y - 2, 4, 3, "#0a0");
+    rect(c.x - 5, c.y - 4, 3, 3, "#0a0");
+}
+
+function drawBunny(b) {
+    // body
+    rect(b.x + 4, b.y + 10, 16, 14, "#fff");
+    // head
+    rect(b.x + 6, b.y + 4, 12, 10, "#fff");
+    // ears
+    rect(b.x + 7, b.y - 8, 4, 14, "#fff");
+    rect(b.x + 13, b.y - 8, 4, 14, "#fff");
+    // inner ears
+    rect(b.x + 8, b.y - 6, 2, 10, "#faa");
+    rect(b.x + 14, b.y - 6, 2, 10, "#faa");
+    // eye
+    rect(b.x + 8, b.y + 7, 2, 2, "#f00");
+    // tail
+    rect(b.x + 18, b.y + 12, 4, 4, "#fff");
+    // legs
+    let hop = Math.floor(frameCount / 8) % 2;
+    rect(b.x + 4, b.y + 24, 5, 4 + hop * 2, "#fff");
+    rect(b.x + 14, b.y + 24, 5, 4 + (1 - hop) * 2, "#fff");
+}
+
+function drawGround() {
+    ctx.fillStyle = "#0f0";
+    ctx.fillRect(0, H - 26, W, 2);
+    // scrolling dots
+    for (let i = 0; i < W + 20; i += 20) {
+        let gx = (i - groundOffset % 20);
+        if (gx >= 0 && gx < W) {
+            ctx.fillRect(gx, H - 20, 2, 2);
+            ctx.fillRect(gx + 10, H - 14, 1, 1);
+        }
+    }
+}
+
+function drawExplosion(x, y) {
+    ctx.fillStyle = "#ff0";
+    for (let i = 0; i < 6; i++) {
+        let angle = (i / 6) * Math.PI * 2;
+        let dist = 6 + Math.random() * 6;
+        rect(x + Math.cos(angle) * dist, y + Math.sin(angle) * dist, 3, 3, "#ff0");
+    }
+}
+
+// ── main loop ───────────────────────────────────────────────
+let explosions = [];
+
+function update() {
+    if (state !== "running") return;
+    frameCount++;
+    groundOffset += speed;
+
+    // difficulty ramp
+    if (frameCount % 300 === 0) {
+        speed = Math.min(speed + 0.3, 9);
+        spawnInterval = Math.max(spawnInterval - 5, 30);
+    }
+
+    // passive score
+    if (frameCount % 10 === 0) {
+        score++;
+        document.getElementById("score").textContent = score;
+    }
+
+    // ── player movement ──
+    if (keys["ArrowUp"] && player.onGround) {
+        player.vy = JUMP_VEL;
+        player.onGround = false;
+    }
+    if (keys["ArrowDown"] && !player.onGround) {
+        player.vy += 1.2;  // fast fall
+    }
+    player.vy += GRAVITY;
+    player.y += player.vy;
+    if (player.y >= GROUND_Y) {
+        player.y = GROUND_Y;
+        player.vy = 0;
+        player.onGround = true;
+    }
+
+    // ── shooting ──
+    if (shootTimer > 0) shootTimer--;
+    if (keys["Space"] && shootTimer === 0) {
+        carrots.push({ x: player.x + 28, y: player.y + 6, w: 12, h: 4 });
+        shootTimer = SHOOT_COOLDOWN;
+    }
+
+    // ── update carrots ──
+    for (let c of carrots) c.x += CARROT_SPEED;
+    carrots = carrots.filter(c => c.x < W + 20);
+
+    // ── spawn bunnies ──
+    spawnTimer++;
+    if (spawnTimer >= spawnInterval) {
+        spawnTimer = 0;
+        let by = GROUND_Y + (Math.random() > 0.3 ? 0 : -20 - Math.random() * 40);
+        bunnies.push({ x: W + 10, y: by, w: 24, h: 28, alive: true });
+    }
+
+    // ── update bunnies ──
+    for (let b of bunnies) b.x -= speed + 1;
+    bunnies = bunnies.filter(b => b.x > -30);
+
+    // ── collisions: carrots vs bunnies ──
+    for (let c of carrots) {
+        for (let b of bunnies) {
+            if (b.alive && overlap(c, b)) {
+                b.alive = false;
+                c.x = W + 100; // remove carrot
+                score += 10;
+                document.getElementById("score").textContent = score;
+                explosions.push({ x: b.x + 12, y: b.y + 14, t: 8 });
+            }
+        }
+    }
+    bunnies = bunnies.filter(b => b.alive);
+
+    // ── collisions: player vs bunnies ──
+    for (let b of bunnies) {
+        if (overlap(player, b)) {
+            die();
+            return;
+        }
+    }
+}
+
+function die() {
+    state = "dead";
+    if (score > hiScore) {
+        hiScore = score;
+        localStorage.setItem("sixseven_hi", hiScore);
+        document.getElementById("hiscore").textContent = hiScore;
+    }
+    document.getElementById("message").textContent =
+        "GAME OVER \u2014 SCORE: " + score + " \u2014 PRESS SPACE TO RESTART";
+}
+
+function draw() {
+    ctx.clearRect(0, 0, W, H);
+
+    if (state === "idle") {
+        ctx.fillStyle = "#0f0";
+        ctx.font = "20px Courier New";
+        ctx.textAlign = "center";
+        ctx.fillText("~ SIXSEVEN ~", W / 2, H / 2 - 40);
+        ctx.font = "14px Courier New";
+        ctx.fillText("Defend your garden!", W / 2, H / 2 - 10);
+        ctx.fillText("Shoot carrots at the invading bunnies", W / 2, H / 2 + 14);
+        ctx.font = "12px Courier New";
+        ctx.fillStyle = "#888";
+        ctx.fillText("UP: jump  |  DOWN: fast fall  |  SPACE: shoot", W / 2, H / 2 + 50);
+        ctx.textAlign = "left";
+        drawGround();
+        return;
+    }
+
+    drawGround();
+    drawPlayer(player);
+    for (let c of carrots) drawCarrot(c);
+    for (let b of bunnies) drawBunny(b);
+
+    // explosions
+    for (let e of explosions) {
+        drawExplosion(e.x, e.y);
+        e.t--;
+    }
+    explosions = explosions.filter(e => e.t > 0);
+
+    if (state === "dead") {
+        ctx.fillStyle = "rgba(0,0,0,0.5)";
+        ctx.fillRect(0, 0, W, H);
+        ctx.fillStyle = "#f00";
+        ctx.font = "28px Courier New";
+        ctx.textAlign = "center";
+        ctx.fillText("GAME OVER", W / 2, H / 2 - 10);
+        ctx.fillStyle = "#0f0";
+        ctx.font = "14px Courier New";
+        ctx.fillText("SCORE: " + score, W / 2, H / 2 + 20);
+        ctx.textAlign = "left";
+    }
+}
+
+function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
