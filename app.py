@@ -12,5 +12,7 @@ def index():
 
 
 if __name__ == "__main__":
-    threading.Timer(1.0, webbrowser.open, args=("http://localhost:6578",)).start()
+    import os
+    if os.environ.get("WERKZEUG_RUN_MAIN") != "true":
+        threading.Timer(1.0, webbrowser.open, args=("http://localhost:6578",)).start()
     app.run(debug=True, port=6578)
