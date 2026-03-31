@@ -71,50 +71,43 @@ const H = canvas.height;
 const S = 4;
 
 // ── palette indices ─────────────────────────────────────────
+// Each letter is a color used in the sprite grids below
 const _ = null; // transparent
-const COLORS = {
-    // farmer
-    a: "#f0c090", // skin
-    A: "#d4a070", // skin shade
-    b: "#c87030", // hat
-    B: "#e08838", // hat highlight
-    c: "#a05828", // hat band
-    d: "#4888c8", // shirt
-    D: "#3868a0", // shirt shade
-    e: "#6050a0", // pants
-    E: "#484080", // pants shade
-    f: "#5c3d2e", // boots
-    F: "#7a5840", // boots highlight
-    g: "#302820", // eye pupil
-    h: "#ffffff", // eye white
-    i: "#c07050", // mouth
-    j: "#8060b0", // overall strap
 
-    // bunny
-    k: "#f0ece8", // fur
-    K: "#d8d0c8", // fur shade
-    l: "#fff8f4", // belly
-    m: "#f0a0a0", // ear pink
-    M: "#d88080", // ear pink dark
-    n: "#402020", // bunny eye
-    o: "#ffb0b0", // nose
-    p: "#b8b0a8", // fur dark (whisker area)
+// farmer
+const a = "#f0c090"; // skin
+const A = "#d4a070"; // skin shade
+const b = "#c87030"; // hat
+const B = "#e08838"; // hat highlight
+const c = "#a05828"; // hat band
+const d = "#4888c8"; // shirt
+const D = "#3868a0"; // shirt shade
+const e = "#6050a0"; // pants
+const E = "#484080"; // pants shade
+const f = "#5c3d2e"; // boots
+const F = "#7a5840"; // boots highlight
+const g = "#302820"; // eye pupil
+const h = "#ffffff"; // eye white
+const i = "#c07050"; // mouth
+const j = "#8060b0"; // overall strap
 
-    // carrot
-    q: "#ff8030", // carrot mid
-    Q: "#ffa050", // carrot base
-    r: "#ff6020", // carrot tip
-    s: "#ffc070", // carrot highlight
-    t: "#3da040", // leaf 1
-    T: "#50c050", // leaf 2
+// bunny
+const k = "#f0ece8"; // fur
+const K = "#d8d0c8"; // fur shade
+const l = "#fff8f4"; // belly
+const m = "#f0a0a0"; // ear pink
+const M = "#d88080"; // ear pink dark
+const n = "#402020"; // bunny eye
+const o = "#ffb0b0"; // nose
+const p = "#b8b0a8"; // fur dark
 
-    // ground / scenery
-    u: "#4a7a3b", // grass1
-    U: "#5c9e48", // grass2
-    v: "#3d6630", // grass3
-    w: "#5c3d2e", // dirt1
-    W: "#4a3025", // dirt2
-};
+// carrot
+const q = "#ff8030"; // carrot mid
+const Q = "#ffa050"; // carrot base
+const r = "#ff6020"; // carrot tip
+const s = "#ffc070"; // carrot highlight
+const t = "#3da040"; // leaf 1
+const T = "#50c050"; // leaf 2
 
 // ── 16x16 sprite data ───────────────────────────────────────
 // Farmer (facing right) — 16 wide x 16 tall
@@ -214,7 +207,7 @@ function drawSprite(sprite, x, y, scale) {
         for (let col = 0; col < sprite[row].length; col++) {
             let c = sprite[row][col];
             if (c === null) continue;
-            ctx.fillStyle = COLORS[c];
+            ctx.fillStyle = c;
             ctx.fillRect(
                 Math.round(x + col * scale),
                 Math.round(y + row * scale),
