@@ -26,7 +26,23 @@ jobs:
       pull-requests: write
       issues: write
       id-token: write
+    env:
+      DAILY_LIMIT: 10  # max @claude triggers per day across all users
     steps:
+      - name: Check daily rate limit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TODAY=$(date -u +%Y-%m-%dT00:00:00Z)
+          COUNT=$(gh api \
+            "repos/${{ github.repository }}/actions/workflows/claude.yml/runs?created=>=$TODAY&status=completed" \
+            --jq '.total_count')
+          echo "Claude runs today: $COUNT / $DAILY_LIMIT"
+          if [ "$COUNT" -ge "$DAILY_LIMIT" ]; then
+            echo "::error::Daily limit of $DAILY_LIMIT @claude runs reached. Try again tomorrow."
+            exit 1
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
