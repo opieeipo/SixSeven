@@ -1,3 +1,6 @@
+import threading
+import webbrowser
+
 from flask import Flask, render_template
 
 app = Flask(__name__)
@@ -9,4 +12,5 @@ def index():
 
 
 if __name__ == "__main__":
+    threading.Timer(1.0, webbrowser.open, args=("http://localhost:5000",)).start()
     app.run(debug=True)
