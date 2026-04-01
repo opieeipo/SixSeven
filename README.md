@@ -1,6 +1,6 @@
 # SixSeven
 
-A 2D Mario-style platformer built with Flask and vanilla JavaScript Canvas. Play as a farmer defending your garden — shoot carrots at bunnies, tortoises, foxes, and crows as you navigate platforms to reach the goal.
+A 2D Mario-style platformer built with Flask and vanilla JavaScript Canvas. Play as a farmer defending your garden — shoot carrots at enemies across **3 distinct levels**, each ending with a powerful boss fight.
 
 **Play it live:** [opieeipo.github.io/SixSeven](https://opieeipo.github.io/SixSeven)
 
@@ -12,6 +12,19 @@ A 2D Mario-style platformer built with Flask and vanilla JavaScript Canvas. Play
 - **SPACE** — Shoot carrots
 
 ## Game Features
+
+### 3 Levels with Boss Fights
+Each level has a unique visual theme and ends with a boss you must defeat before reaching the goal.
+
+| Level | Theme | Boss | Boss HP | Boss Attacks |
+|-------|-------|------|---------|--------------|
+| 1 | The Garden | **Bunny King** | 8 | Hops, fires carrot spreads |
+| 2 | Dark Forest | **Stone Golem** | 12 | Ground slams, shockwaves, drops rocks |
+| 3 | Storm Sky | **Storm Lord** | 16 | Dive bombs, lightning strikes |
+
+- Boss health bar displayed at top of screen during fight
+- "BOSS INCOMING!" warning when you enter boss range
+- Bosses enter an **enraged phase** at 50% HP (faster attacks, more projectiles)
 
 ### Platformer Mechanics
 - Jump on and between platforms with full collision (land on top, bump head, side block)
@@ -25,12 +38,16 @@ A 2D Mario-style platformer built with Flask and vanilla JavaScript Canvas. Play
 | Tortoise | Slow, tracks player | 2 | 20 |
 | Fox | Fast, charges when close | 1 | 15 |
 | Crow | Flies overhead, swoops in waves | 1 | 15 |
+| Bunny King (boss) | Hops + carrot spray | 8 | 150 |
+| Stone Golem (boss) | Ground slam + rocks | 12 | 200 |
+| Storm Lord (boss) | Dive bomb + lightning | 16 | 250 |
 
-Enemies grow in strength and variety as you progress through the level. Early zones have bunnies only, mid-level mixes in tortoises and foxes, and the final stretch adds crows.
+Enemy density and speed increase with each level. Level 2 has more foxes and tortoises; Level 3 swarms with fast foxes and crows.
 
 ### Scoring
 - +1 point passively for surviving
-- Bonus points per enemy type (see table above)
+- Bonus points per enemy and boss kill
+- +100 points per level clear, +200 for final victory
 - High score saved locally in your browser
 
 ## Running Locally
