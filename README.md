@@ -28,6 +28,24 @@ A 2D Mario-style platformer built with Flask and vanilla JavaScript Canvas. Play
 
 Enemies grow in strength and variety as you progress through the level. Early zones have bunnies only, mid-level mixes in tortoises and foxes, and the final stretch adds crows.
 
+### Breakable ? Blocks & Power-Ups
+
+Gold **?** blocks are scattered across the level. Break them by:
+- **Shooting** a carrot into a block
+- **Jumping** and bumping the block from below (like Mario)
+
+Each block reveals a power-up collectible. Walk or jump into it to pick it up. Power-ups last **~10 seconds**:
+
+| Power-Up | Effect |
+|----------|--------|
+| SPREAD | Fires 3 carrots in a spread pattern |
+| RAPID | Triples your fire rate |
+| BIG | Shoots oversized carrots with a larger hitbox |
+| SHIELD | Absorbs one enemy hit (or expires after 10s) |
+| SPEED | Increases movement speed by 1.8× |
+
+The active power-up and its remaining time are shown in the top-right HUD bar.
+
 ### Scoring
 - +1 point passively for surviving
 - Bonus points per enemy type (see table above)

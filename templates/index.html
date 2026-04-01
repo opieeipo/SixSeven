@@ -334,13 +334,15 @@ const GRAVITY = 0.45;
 const JUMP_VEL = -15;
 const MOVE_SPEED = 4;
 const PLAT_H = 20;           // visual platform height in pixels
+const POWERUP_DURATION = 600; // ~10 seconds at 60fps
 
 // ── player ───────────────────────────────────────────────────
 // x/y = world X, screen Y. w/h = hitbox size.
 const player = {
     x: 80, y: GROUND_Y,
     w: SPRITE_SIZE - 12, h: SPRITE_SIZE,
-    vy: 0, onGround: true, prevY: GROUND_Y
+    vy: 0, onGround: true, prevY: GROUND_Y,
+    powerUp: null, powerUpTimer: 0, shield: false
 };
 
 // ── platforms ────────────────────────────────────────────────
@@ -383,6 +385,11 @@ let shootTimer = 0;
 
 let enemies = [];
 let particles = [];
+let qBlocks = [];
+let powerUpItems = [];
+
+const POWERUP_COLORS = { spread: '#ff8030', rapid: '#ff4040', big: '#ff6010', shield: '#4080ff', speed: '#40d040' };
+const POWERUP_LABELS = { spread: 'SPREAD', rapid: 'RAPID', big: 'BIG', shield: 'SHIELD', speed: 'SPEED' };
 
 // ── clouds (screen-space parallax) ───────────────────────────
 let clouds = [];
@@ -482,6 +489,32 @@ function makeEnemies() {
     return list;
 }
 
+function makeQBlocks() {
+    const types = ['spread', 'rapid', 'big', 'shield', 'speed'];
+    let blocks = [];
+    let ti = 0;
+    // Ground-reachable blocks (player jumps from ground and bumps underside)
+    let groundXs = [350, 720, 1120, 1580, 2030, 2480, 2940, 3390, 3840, 4300, 4790, 5290, 5790];
+    for (let gx of groundXs) {
+        blocks.push({ x: gx, y: GROUND_Y - SPRITE_SIZE * 2, broken: false, type: types[ti % types.length] });
+        ti++;
+    }
+    // Platform-accessible blocks (above select platforms)
+    let platIdxs = [1, 3, 6, 9, 13, 17, 21];
+    for (let pi of platIdxs) {
+        if (!PLATFORMS[pi]) continue;
+        let plat = PLATFORMS[pi];
+        blocks.push({ x: plat.x + plat.w / 2 - SPRITE_SIZE / 2, y: plat.top - SPRITE_SIZE * 2, broken: false, type: types[ti % types.length] });
+        ti++;
+    }
+    return blocks;
+}
+
+function breakBlock(blk) {
+    spawnPoof(blk.x - cameraX + SPRITE_SIZE / 2, blk.y + SPRITE_SIZE / 2, 0);
+    powerUpItems.push({ x: blk.x, y: blk.y, w: SPRITE_SIZE, h: SPRITE_SIZE, type: blk.type, alive: true });
+}
+
 function startGame() {
     state = "running";
     score = 0; frameCount = 0;
@@ -489,7 +522,10 @@ function startGame() {
     shootTimer = 0; cameraX = 0;
     player.x = 80; player.y = GROUND_Y; player.vy = 0;
     player.onGround = true; player.prevY = GROUND_Y;
+    player.powerUp = null; player.powerUpTimer = 0; player.shield = false;
     enemies = makeEnemies();
+    qBlocks = makeQBlocks();
+    powerUpItems = [];
     document.getElementById("score").textContent = "0";
     document.getElementById("message").textContent =
         "ARROWS: move/jump  |  DOWN: fast fall  |  SPACE: shoot";
@@ -728,6 +764,13 @@ function drawProgressBar() {
 // ── draw entities using sprite data ──────────────────────────
 function drawPlayerSprite(pl) {
     let sx = pl.x - cameraX;
+    // Shield glow
+    if (pl.shield) {
+        ctx.globalAlpha = 0.28 + Math.sin(frameCount * 0.15) * 0.12;
+        ctx.fillStyle = "#4080ff";
+        roundRect(sx - 6, pl.y - 6, SPRITE_SIZE + 12, SPRITE_SIZE + 12, 8);
+        ctx.globalAlpha = 1;
+    }
     // shadow at feet
     ctx.globalAlpha = 0.2;
     ctx.fillStyle = "#000";
@@ -863,6 +906,92 @@ function drawParticles() {
     ctx.globalAlpha = 1;
 }
 
+// ── breakable blocks & power-ups ─────────────────────────────
+function drawQBlock(blk) {
+    let sx = blk.x - cameraX;
+    if (sx + SPRITE_SIZE < 0 || sx > W) return;
+    let sy = blk.y;
+    if (blk.broken) {
+        // Cracked empty block
+        ctx.fillStyle = "#8b6a35";
+        ctx.fillRect(sx, sy, SPRITE_SIZE, SPRITE_SIZE);
+        ctx.fillStyle = "#6b4a20";
+        ctx.fillRect(sx + 4, sy + 4, SPRITE_SIZE - 8, SPRITE_SIZE - 8);
+        ctx.fillStyle = "#4a3015";
+        ctx.fillRect(sx + 8, sy + 8, SPRITE_SIZE - 16, SPRITE_SIZE - 16);
+        return;
+    }
+    // Gold block body
+    ctx.fillStyle = "#c87820";
+    ctx.fillRect(sx, sy, SPRITE_SIZE, SPRITE_SIZE);
+    ctx.fillStyle = "#ffd040";
+    ctx.fillRect(sx + 4, sy + 4, SPRITE_SIZE - 8, SPRITE_SIZE - 8);
+    // Highlight (top-left)
+    ctx.fillStyle = "#ffe880";
+    ctx.fillRect(sx + 4, sy + 4, SPRITE_SIZE - 8, 5);
+    ctx.fillRect(sx + 4, sy + 4, 5, SPRITE_SIZE - 8);
+    // Shadow (bottom-right)
+    ctx.fillStyle = "#a06010";
+    ctx.fillRect(sx + 4, sy + SPRITE_SIZE - 9, SPRITE_SIZE - 8, 5);
+    ctx.fillRect(sx + SPRITE_SIZE - 9, sy + 4, 5, SPRITE_SIZE - 8);
+    // Shimmer pulse
+    let shimAlpha = 0.12 + Math.sin(frameCount * 0.1 + blk.x * 0.005) * 0.08;
+    ctx.globalAlpha = shimAlpha;
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(sx + 6, sy + 6, SPRITE_SIZE - 12, SPRITE_SIZE - 12);
+    ctx.globalAlpha = 1;
+    // ? mark
+    ctx.fillStyle = "#fff8e0";
+    ctx.font = "bold 22px 'Press Start 2P', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("?", sx + SPRITE_SIZE / 2, sy + SPRITE_SIZE / 2 + 9);
+    ctx.textAlign = "left";
+}
+
+function drawPowerUpItem(pu) {
+    let sx = pu.x - cameraX;
+    if (sx < -SPRITE_SIZE || sx > W) return;
+    let bob = Math.sin(frameCount * 0.08 + pu.x * 0.01) * 5;
+    let sy = pu.y + bob;
+    // Glow
+    ctx.globalAlpha = 0.22 + Math.sin(frameCount * 0.1) * 0.08;
+    ctx.fillStyle = POWERUP_COLORS[pu.type];
+    roundRect(sx - 6, sy - 6, SPRITE_SIZE + 12, SPRITE_SIZE + 12, 10);
+    ctx.globalAlpha = 1;
+    // Box
+    ctx.fillStyle = POWERUP_COLORS[pu.type];
+    roundRect(sx, sy, SPRITE_SIZE, SPRITE_SIZE, 6);
+    // Shine
+    ctx.fillStyle = "rgba(255,255,255,0.28)";
+    roundRect(sx + 3, sy + 3, SPRITE_SIZE - 6, 10, 3);
+    // Label
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 8px 'Press Start 2P', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(POWERUP_LABELS[pu.type], sx + SPRITE_SIZE / 2, sy + SPRITE_SIZE / 2 + 4);
+    ctx.textAlign = "left";
+}
+
+function drawPowerUpHUD() {
+    if (!player.powerUp) return;
+    let frac = player.powerUpTimer / POWERUP_DURATION;
+    let fullLabels = { spread: 'SPREAD SHOT', rapid: 'RAPID FIRE', big: 'BIG CARROT', shield: 'SHIELD', speed: 'SPEED BOOST' };
+    // Background
+    ctx.fillStyle = "rgba(0,0,0,0.55)";
+    roundRect(W - 232, 26, 222, 28, 5);
+    // Fill bar
+    ctx.fillStyle = POWERUP_COLORS[player.powerUp];
+    ctx.globalAlpha = 0.7;
+    roundRect(W - 230, 28, 218 * frac, 24, 4);
+    ctx.globalAlpha = 1;
+    // Text
+    ctx.fillStyle = "#fff";
+    ctx.font = "7px 'Press Start 2P', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText(fullLabels[player.powerUp], W - 121, 45);
+    ctx.textAlign = "left";
+}
+
 // ── game loop ─────────────────────────────────────────────────
 function update() {
     if (state !== "running") return;
@@ -877,12 +1006,22 @@ function update() {
     // Store previous Y for collision
     player.prevY = player.y;
 
+    // Power-up timer countdown
+    if (player.powerUpTimer > 0) {
+        player.powerUpTimer--;
+        if (player.powerUpTimer === 0) {
+            player.powerUp = null;
+            player.shield = false;
+        }
+    }
+
     // Horizontal movement
+    let curSpeed = MOVE_SPEED * (player.powerUp === 'speed' ? 1.8 : 1);
     if (keys["ArrowRight"]) {
-        player.x = Math.min(player.x + MOVE_SPEED, LEVEL_WIDTH - SPRITE_SIZE);
+        player.x = Math.min(player.x + curSpeed, LEVEL_WIDTH - SPRITE_SIZE);
     }
     if (keys["ArrowLeft"]) {
-        player.x = Math.max(player.x - MOVE_SPEED, 0);
+        player.x = Math.max(player.x - curSpeed, 0);
     }
 
     // Jump
@@ -911,6 +1050,23 @@ function update() {
     // Platform collision
     resolvePlatforms();
 
+    // Block bump from below (rising player head hits block underside)
+    if (player.vy < 0) {
+        let pLeft = player.x + 10;
+        let pRight = player.x + player.w - 4;
+        for (let blk of qBlocks) {
+            if (blk.broken) continue;
+            let bBot = blk.y + SPRITE_SIZE;
+            if (pRight > blk.x && pLeft < blk.x + SPRITE_SIZE &&
+                player.y <= bBot && player.prevY >= bBot) {
+                player.y = bBot;
+                player.vy = 0;
+                blk.broken = true;
+                breakBlock(blk);
+            }
+        }
+    }
+
     // Update camera (player at ~W/3 from left, clamped to level bounds)
     let targetCam = player.x - W / 3;
     cameraX = Math.max(0, Math.min(targetCam, LEVEL_WIDTH - W));
@@ -918,16 +1074,21 @@ function update() {
     // Shooting
     if (shootTimer > 0) shootTimer--;
     if (keys["Space"] && shootTimer === 0) {
-        carrots.push({
-            x: player.x + SPRITE_SIZE,
-            y: player.y + 30,
-            w: SPRITE_SIZE, h: 6 * S
-        });
-        shootTimer = SHOOT_COOLDOWN;
+        let bw = player.powerUp === 'big' ? Math.round(SPRITE_SIZE * 1.6) : SPRITE_SIZE;
+        let bh = player.powerUp === 'big' ? Math.round(6 * S * 1.5) : 6 * S;
+        carrots.push({ x: player.x + SPRITE_SIZE, y: player.y + 30, w: bw, h: bh });
+        if (player.powerUp === 'spread') {
+            carrots.push({ x: player.x + SPRITE_SIZE, y: player.y + 10, w: SPRITE_SIZE, h: 6 * S, vy: -2.5 });
+            carrots.push({ x: player.x + SPRITE_SIZE, y: player.y + 50, w: SPRITE_SIZE, h: 6 * S, vy: 2.5 });
+        }
+        shootTimer = player.powerUp === 'rapid' ? Math.max(4, Math.floor(SHOOT_COOLDOWN / 3)) : SHOOT_COOLDOWN;
     }
 
     // Move carrots (world space)
-    for (let c of carrots) c.x += CARROT_SPEED;
+    for (let c of carrots) {
+        c.x += CARROT_SPEED;
+        if (c.vy) c.y += c.vy;
+    }
     carrots = carrots.filter(c => c.x < player.x + W);
 
     // Update enemy movement
@@ -954,6 +1115,18 @@ function update() {
         }
     }
 
+    // Carrot vs qBlocks
+    for (let c of carrots) {
+        for (let blk of qBlocks) {
+            if (!blk.broken && overlap(c, { x: blk.x, y: blk.y, w: SPRITE_SIZE, h: SPRITE_SIZE })) {
+                c.x = LEVEL_WIDTH + 200;
+                blk.broken = true;
+                breakBlock(blk);
+                break;
+            }
+        }
+    }
+
     // Carrot vs enemy (with hp system)
     for (let c of carrots) {
         for (let en of enemies) {
@@ -975,6 +1148,19 @@ function update() {
     }
     enemies = enemies.filter(en => en.alive);
 
+    // Player vs power-up items
+    for (let pu of powerUpItems) {
+        if (!pu.alive) continue;
+        if (overlap(player, pu)) {
+            pu.alive = false;
+            player.powerUp = pu.type;
+            player.powerUpTimer = POWERUP_DURATION;
+            player.shield = (pu.type === 'shield');
+            particles.push({ x: player.x - cameraX + 28, y: player.y - 10, vx: 0, vy: -1.5, life: 40, maxLife: 40, size: 0, color: POWERUP_COLORS[pu.type], text: POWERUP_LABELS[pu.type] + '!' });
+        }
+    }
+    powerUpItems = powerUpItems.filter(pu => pu.alive);
+
     // Player vs enemy (tighter hitboxes, world space)
     let pH = { x: player.x + 12, y: player.y + 8, w: player.w - 20, h: player.h - 12 };
     for (let en of enemies) {
@@ -982,8 +1168,16 @@ function update() {
         if (sx < -SPRITE_SIZE || sx > W + SPRITE_SIZE) continue;
         let eH = { x: en.x + 8, y: en.y + 8, w: en.w - 12, h: en.h - 12 };
         if (overlap(pH, eH)) {
-            die();
-            return;
+            if (player.shield) {
+                player.shield = false;
+                player.powerUp = null;
+                player.powerUpTimer = 0;
+                spawnPoof(player.x - cameraX + SPRITE_SIZE / 2, player.y + SPRITE_SIZE / 2, 0);
+                break;
+            } else {
+                die();
+                return;
+            }
         }
     }
 
@@ -1078,14 +1272,17 @@ function draw() {
     }
 
     drawPlatforms();
+    for (let blk of qBlocks) drawQBlock(blk);
     drawBushes();
     drawGround();
     drawGoal();
+    for (let pu of powerUpItems) drawPowerUpItem(pu);
     drawPlayerSprite(player);
     for (let c of carrots) drawCarrotSprite(c);
     for (let en of enemies) drawEnemySprite(en);
     drawParticles();
     drawProgressBar();
+    drawPowerUpHUD();
 
     if (state === "dead") {
         ctx.fillStyle = "rgba(0,0,0,0.55)";
