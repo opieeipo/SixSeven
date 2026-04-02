@@ -56,6 +56,7 @@
     <div id="title">SIXSEVEN</div>
     <div id="header">
         <span><span class="lbl">SCORE </span><span class="val" id="score">0</span></span>
+        <span><span class="lbl">AMMO </span><span class="val" id="ammo">30</span></span>
         <span><span class="lbl">BEST </span><span class="val" id="hiscore">0</span></span>
     </div>
     <canvas id="game-canvas" width="960" height="480"></canvas>
@@ -480,6 +481,9 @@ let carrots = [];
 const CARROT_SPEED = 10;
 const SHOOT_COOLDOWN = 14;
 let shootTimer = 0;
+let ammo = 30;
+const MAX_AMMO = 99;
+let ammoPickups = [];
 
 let enemies = [];
 let particles = [];
@@ -623,7 +627,8 @@ function makeEnemies() {
             type, x, y: GROUND_Y,
             w: SPRITE_SIZE - 8, h: SPRITE_SIZE,
             alive: true, hp, maxHp: hp,
-            speed, vx: 0, flashFrames: 0
+            speed, vx: 0, flashFrames: 0,
+            baseX: x, patrolDir: 1
         });
     }
 
@@ -639,7 +644,8 @@ function makeEnemies() {
             y: plat.top - SPRITE_SIZE,
             w: SPRITE_SIZE - 8, h: SPRITE_SIZE,
             alive: true, hp: 1, maxHp: 1,
-            speed: pSpeed, vx: 0, flashFrames: 0
+            speed: pSpeed, vx: 0, flashFrames: 0,
+            baseX: plat.x + plat.w / 2 - (SPRITE_SIZE - 8) / 2, patrolDir: 1
         });
     }
 
@@ -659,7 +665,8 @@ function makeEnemies() {
             speed: (0.9 + (lvl - 1) * 0.4) * speedMult, vx: 0,
             flyBaseY: 120 + Math.random() * 120,
             flyPhase: Math.random() * Math.PI * 2,
-            flashFrames: 0
+            flashFrames: 0,
+            baseX: x, patrolDir: -1
         });
     }
 
@@ -683,9 +690,10 @@ function startLevel() {
     rebuildBushes();
     state = "running";
     frameCount = 0;
-    carrots = []; particles = []; bossProjectiles = [];
+    carrots = []; particles = []; bossProjectiles = []; ammoPickups = [];
     bossSpawned = false; boss = null; bossWarningFrames = 0;
     shootTimer = 0; cameraX = 0;
+    ammo = 30; document.getElementById("ammo").textContent = "30";
     player.x = 80; player.y = GROUND_Y; player.vy = 0;
     player.onGround = true; player.prevY = GROUND_Y;
     enemies = makeEnemies();
@@ -1130,6 +1138,20 @@ function drawCarrotSprite(c) {
     drawSprite(CARROT_SPRITE, sx, c.y + wobble, S);
 }
 
+function drawAmmoPickup(ap) {
+    let sx = ap.x - cameraX;
+    if (sx < -32 || sx > W + 32) return;
+    // Bob up and down
+    let bob = Math.sin(frameCount * 0.08 + ap.x * 0.01) * 4;
+    drawSprite(CARROT_SPRITE, sx, ap.y + bob, 2);
+    // Label showing count
+    ctx.fillStyle = "#ffd866";
+    ctx.font = "6px 'Press Start 2P', monospace";
+    ctx.textAlign = "center";
+    ctx.fillText("+" + ap.count, sx + 16, ap.y + bob - 4);
+    ctx.textAlign = "left";
+}
+
 function drawEnemySprite(en) {
     let sx = en.x - cameraX;
     if (sx < -SPRITE_SIZE || sx > W + SPRITE_SIZE) return;
@@ -1297,13 +1319,15 @@ function update() {
 
     // Shooting
     if (shootTimer > 0) shootTimer--;
-    if (keys["Space"] && shootTimer === 0) {
+    if (keys["Space"] && shootTimer === 0 && ammo > 0) {
         carrots.push({
             x: player.x + SPRITE_SIZE,
             y: player.y + 30,
             w: SPRITE_SIZE, h: 6 * S
         });
         shootTimer = SHOOT_COOLDOWN;
+        ammo--;
+        document.getElementById("ammo").textContent = ammo;
     }
 
     // Move carrots (world space)
@@ -1315,20 +1339,35 @@ function update() {
         if (!en.alive) continue;
         if (en.flashFrames > 0) en.flashFrames--;
         if (en.type === 'tortoise') {
-            let dir = player.x > en.x ? 1 : -1;
-            en.x += dir * en.speed;
+            // Track player only when within 280px, otherwise patrol a fixed range
+            let dx = player.x - en.x;
+            if (Math.abs(dx) < 280) {
+                let dir = dx > 0 ? 1 : -1;
+                en.x += dir * en.speed;
+            } else {
+                // Patrol ±120px around spawn
+                en.x += en.patrolDir * en.speed * 0.5;
+                if (en.x > en.baseX + 120) { en.patrolDir = -1; }
+                else if (en.x < en.baseX - 120) { en.patrolDir = 1; }
+            }
         } else if (en.type === 'fox') {
             let dx = player.x - en.x;
-            if (Math.abs(dx) < 350) {
+            if (Math.abs(dx) < 320) {
+                // Charge straight at player at fixed speed (no acceleration drift)
                 let dir = dx > 0 ? 1 : -1;
-                en.vx += dir * 0.4;
-                en.vx = Math.max(-en.speed, Math.min(en.speed, en.vx));
+                en.vx = dir * en.speed;
             } else {
-                en.vx *= 0.9;
+                // Patrol ±80px around spawn when player is far
+                en.vx = en.patrolDir * en.speed * 0.4;
+                if (en.x > en.baseX + 80) { en.patrolDir = -1; }
+                else if (en.x < en.baseX - 80) { en.patrolDir = 1; }
             }
             en.x += en.vx;
         } else if (en.type === 'crow') {
-            en.x -= en.speed;
+            // Patrol ±250px around spawn horizontally instead of drifting forever left
+            en.x += en.patrolDir * en.speed;
+            if (en.x > en.baseX + 250) { en.patrolDir = -1; }
+            else if (en.x < en.baseX - 250) { en.patrolDir = 1; }
             en.flyPhase += 0.05;
             en.y = en.flyBaseY + Math.sin(en.flyPhase) * 30;
         }
@@ -1383,6 +1422,14 @@ function update() {
                         score += pts;
                         document.getElementById("score").textContent = score;
                         spawnPoof(en.x - cameraX + SPRITE_SIZE / 2, en.y + SPRITE_SIZE / 2, pts);
+                        // Drop ammo pickup based on enemy difficulty
+                        let ammoDrop = en.type === 'tortoise' ? 3 : en.type === 'fox' ? 2 : en.type === 'crow' ? 2 : 1;
+                        ammoPickups.push({
+                            x: en.x + (SPRITE_SIZE - 8) / 2,
+                            y: en.y,
+                            w: 16, h: 24,
+                            count: ammoDrop
+                        });
                     } else {
                         en.flashFrames = 12;
                     }
@@ -1392,6 +1439,18 @@ function update() {
         }
     }
     enemies = enemies.filter(en => en.alive);
+
+    // Collect ammo pickups
+    let playerHit = { x: player.x + 8, y: player.y, w: player.w - 16, h: player.h };
+    ammoPickups = ammoPickups.filter(ap => {
+        if (overlap(playerHit, ap)) {
+            ammo = Math.min(MAX_AMMO, ammo + ap.count);
+            document.getElementById("ammo").textContent = ammo;
+            spawnPoof(ap.x - cameraX, ap.y, ap.count);
+            return false;
+        }
+        return true;
+    });
 
     // Update boss projectiles
     for (let bp of bossProjectiles) {
@@ -1572,6 +1631,7 @@ function draw() {
     if (!bossSpawned || (boss && !boss.alive)) drawGoal();
     drawPlayerSprite(player);
     for (let c of carrots) drawCarrotSprite(c);
+    for (let ap of ammoPickups) drawAmmoPickup(ap);
     for (let en of enemies) drawEnemySprite(en);
     if (boss && boss.alive) drawBossSprite(boss);
     drawBossProjectiles();
