@@ -1,54 +1,61 @@
 # SixSeven
 
-A 2D Mario-style platformer built with Flask and vanilla JavaScript Canvas. Play as a farmer defending your garden — shoot carrots at enemies across **3 distinct levels**, each ending with a powerful boss fight.
+A 2D side-scrolling platformer built with Phaser 3 and Flask. Play as a farmer defending your garden -- shoot carrots at enemies across **6 distinct levels**, each ending with a powerful boss fight.
 
 **Play it live:** [opieeipo.github.io/SixSeven](https://opieeipo.github.io/SixSeven)
 
 ## How to Play
 
-- **LEFT / RIGHT** — Move
-- **UP** — Jump
-- **DOWN** — Fast fall (while airborne)
-- **SPACE** — Shoot carrots
+- **LEFT / RIGHT** -- Move (character faces the direction you move)
+- **UP** -- Jump
+- **DOWN** -- Crouch (reduced hitbox, dodge projectiles)
+- **SPACE** -- Shoot carrots (shoots in the direction you're facing)
 
 ## Game Features
 
-### 3 Levels with Boss Fights
+### 6 Levels with Boss Fights
 Each level has a unique visual theme and ends with a boss you must defeat before reaching the goal.
 
 | Level | Theme | Boss | Boss HP | Boss Attacks |
 |-------|-------|------|---------|--------------|
-| 1 | The Garden | **Bunny King** | 8 | Hops, fires carrot spreads |
-| 2 | Dark Forest | **Stone Golem** | 12 | Ground slams, shockwaves, drops rocks |
-| 3 | Storm Sky | **Storm Lord** | 16 | Dive bombs, lightning strikes |
+| 1 | The Garden | **Bunny King** | 8 | Carrot spreads, homing carrots, ground pound, summon minions |
+| 2 | Dark Forest | **Stone Golem** | 12 | Shockwaves, rock rain, charge, ground crack, spinning rock shield |
+| 3 | Storm Sky | **Storm Lord** | 16 | Lightning strikes, dive bombs, tornadoes, chain lightning, wind gusts, feather barrages |
+| 4 | Underground Caves | **Cave Worm** | 10 | Emerge+snap, acid spit, tail sweep, summon grubs |
+| 5 | Volcanic Peaks | **Fire Drake** | 14 | Fireball spray, flame breath, dive+fire trail, wing buffet |
+| 6 | Enchanted Ruins | **Ruin Knight** | 18 | Sword slash, shield charge, summon wolves, teleport+strike, magic orb barrage |
 
 - Boss health bar displayed at top of screen during fight
 - "BOSS INCOMING!" warning when you enter boss range
-- Bosses enter an **enraged phase** at 50% HP (faster attacks, more projectiles)
+- Bosses enter an **enraged phase** at 50% HP (faster attacks, deadlier patterns)
+
+### Player Health
+- You have **5 HP** shown as hearts at the top of the screen
+- Taking damage grants brief invincibility (flashing effect)
+- Enemies have a chance to drop health pickups (hearts) when killed
 
 ### Platformer Mechanics
-- Jump on and between platforms with full collision (land on top, bump head, side block)
+- Jump on and between platforms with full collision
+- Crouch to reduce your hitbox and dodge attacks
+- Shoot in both directions (left and right)
 - Camera scrolls to follow the player through the level
 - Progress bar shows how far you are from the goal
 
-### Enemy Types & Ammo Drops
-| Enemy | Behavior | HP | Points | Ammo Drop |
-|-------|----------|-----|--------|-----------|
-| Bunny | Stationary | 1 | 10 | +1 |
-| Tortoise | Patrols area, tracks when close | 2 | 20 | +3 |
-| Fox | Patrols area, charges at fixed speed when close | 1 | 15 | +2 |
-| Crow | Patrols a set horizontal range, sine-wave altitude | 1 | 15 | +2 |
-| Bunny King (boss) | Hops + carrot spray | 8 | 150 | — |
-| Stone Golem (boss) | Ground slam + rocks | 12 | 200 | — |
-| Storm Lord (boss) | Dive bomb + lightning | 16 | 250 | — |
+### Smart Enemy AI
+| Enemy | Behaviors | HP | Points | Ammo Drop |
+|-------|-----------|-----|--------|-----------|
+| Bunny | Idle, hop toward, hop away | 1 | 10 | +1 |
+| Tortoise | Patrol, track player, shell retreat, stop-and-go | 2 | 20 | +3 |
+| Fox | Patrol, stalk, feint, zigzag charge, leap | 1 | 15 | +2 |
+| Crow | Sine patrol, swoop dive, circle | 1 | 15 | +2 |
 
-Enemy density and speed increase with each level. Level 2 has more foxes and tortoises; Level 3 swarms with fast foxes and crows.
+Enemies use randomized AI state machines so each encounter feels different. Difficulty scales across levels with faster speeds and more aggressive compositions.
 
 ### Ammo System
 - You start each level with **30 carrots**
 - Running out of ammo means you cannot shoot until you pick up drops
 - Kill enemies to collect carrot pickups (bob on the ground where the enemy died)
-- Ammo is capped at 99 and displayed in the HUD above the canvas
+- Ammo is capped at 99 and displayed in the HUD
 
 ### Scoring
 - +1 point passively for surviving
@@ -82,8 +89,8 @@ python app.py
 ## Tech Stack
 
 - **Backend**: Python / Flask (serves a single HTML page, auto-opens browser)
-- **Frontend**: Vanilla JavaScript with HTML5 Canvas
-- **Sprites**: 16x16 pixel-art grids scaled 4x to 64x64 on screen
+- **Frontend**: Phaser 3.80.1 with Arcade Physics
+- **Sprites**: PNG spritesheet with Phaser JSON atlas, scaled 4x on screen
 - **Deployment**: GitHub Pages (auto-deploys on push to main)
 
 ## Contributing
