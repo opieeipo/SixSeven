@@ -31,18 +31,24 @@ Each level has a unique visual theme and ends with a boss you must defeat before
 - Camera scrolls to follow the player through the level
 - Progress bar shows how far you are from the goal
 
-### Enemy Types
-| Enemy | Behavior | HP | Points |
-|-------|----------|-----|--------|
-| Bunny | Stationary | 1 | 10 |
-| Tortoise | Slow, tracks player | 2 | 20 |
-| Fox | Fast, charges when close | 1 | 15 |
-| Crow | Flies overhead, swoops in waves | 1 | 15 |
-| Bunny King (boss) | Hops + carrot spray | 8 | 150 |
-| Stone Golem (boss) | Ground slam + rocks | 12 | 200 |
-| Storm Lord (boss) | Dive bomb + lightning | 16 | 250 |
+### Enemy Types & Ammo Drops
+| Enemy | Behavior | HP | Points | Ammo Drop |
+|-------|----------|-----|--------|-----------|
+| Bunny | Stationary | 1 | 10 | +1 |
+| Tortoise | Patrols area, tracks when close | 2 | 20 | +3 |
+| Fox | Patrols area, charges at fixed speed when close | 1 | 15 | +2 |
+| Crow | Patrols a set horizontal range, sine-wave altitude | 1 | 15 | +2 |
+| Bunny King (boss) | Hops + carrot spray | 8 | 150 | — |
+| Stone Golem (boss) | Ground slam + rocks | 12 | 200 | — |
+| Storm Lord (boss) | Dive bomb + lightning | 16 | 250 | — |
 
 Enemy density and speed increase with each level. Level 2 has more foxes and tortoises; Level 3 swarms with fast foxes and crows.
+
+### Ammo System
+- You start each level with **30 carrots**
+- Running out of ammo means you cannot shoot until you pick up drops
+- Kill enemies to collect carrot pickups (bob on the ground where the enemy died)
+- Ammo is capped at 99 and displayed in the HUD above the canvas
 
 ### Scoring
 - +1 point passively for surviving
