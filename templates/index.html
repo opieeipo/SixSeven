@@ -1025,31 +1025,33 @@ class GameScene extends Phaser.Scene {
 
         switch (ed.type) {
             case 'bunny': {
-                let states = ['IDLE', 'HOP_TOWARD', 'HOP_AWAY'];
-                // More aggressive: less idle, more active pursuit
-                let weights = [25, 50, 25];
-                if (dist < 120) weights = [15, 20, 65]; // retreat when close
-                if (dist > 400) weights = [10, 75, 15]; // charge when far
+                let states = ['IDLE', 'HOP_TOWARD', 'HOP_AWAY', 'ZIGZAG'];
+                let weights = [15, 35, 20, 30];
+                if (dist < 120) weights = [10, 15, 45, 30]; // retreat when close
+                if (dist > 400) weights = [5, 45, 10, 40]; // charge when far
                 ed.state = states[weightedPick(weights)];
                 ed.stateTimer = 60 + Math.floor(Math.random() * 60);
+                ed._zigzagPhase = Math.random() * Math.PI * 2;
                 break;
             }
             case 'tortoise': {
-                let states = ['PATROL', 'TRACK', 'STOP_AND_GO'];
-                let weights = [25, 45, 30]; // more tracking
-                if (dist < 280) weights = [10, 65, 25]; // aggressively track when near
+                let states = ['PATROL', 'TRACK', 'STOP_AND_GO', 'FLANK'];
+                let weights = [20, 30, 20, 30];
+                if (dist < 280) weights = [5, 35, 20, 40]; // flank or track when near
                 ed.state = states[weightedPick(weights)];
                 ed.stateTimer = 90 + Math.floor(Math.random() * 60);
+                ed._flankDir = Math.random() < 0.5 ? 1 : -1;
                 break;
             }
             case 'fox': {
-                let states = ['PATROL', 'STALK', 'FEINT', 'ZIGZAG_CHARGE', 'LEAP'];
-                let weights = [15, 20, 20, 25, 20]; // more aggressive mix
-                if (dist < 200) weights = [5, 10, 25, 35, 25]; // very aggressive when near
-                if (dist > 350) weights = [10, 30, 15, 25, 20];
+                let states = ['PATROL', 'STALK', 'FEINT', 'ZIGZAG_CHARGE', 'LEAP', 'AMBUSH'];
+                let weights = [10, 15, 20, 20, 15, 20];
+                if (dist < 200) weights = [5, 5, 20, 30, 20, 20]; // very aggressive when near
+                if (dist > 350) weights = [10, 20, 10, 20, 15, 25]; // ambush from far
                 ed.state = states[weightedPick(weights)];
                 ed.stateTimer = 70 + Math.floor(Math.random() * 50);
                 ed.chargeSpeedMult = 0.8 + Math.random() * 0.7;
+                ed._ambushTimer = 0;
                 break;
             }
             case 'crow': {
@@ -1090,6 +1092,14 @@ class GameScene extends Phaser.Scene {
                 let dir = px > s.x ? -1 : 1;
                 s.setVelocityX(dir * speed);
                 s.setFlipX(dir < 0);
+                break;
+            }
+            case 'ZIGZAG': {
+                let dir = px > s.x ? 1 : -1;
+                ed._zigzagPhase += 0.08;
+                let lateral = Math.sin(ed._zigzagPhase) * speed * 1.5;
+                s.setVelocityX(dir * speed * 0.6 + lateral);
+                s.setFlipX(s.body.velocity.x < 0);
                 break;
             }
         }
@@ -1146,6 +1156,22 @@ class GameScene extends Phaser.Scene {
                 }
                 break;
             }
+            case 'FLANK': {
+                // Move past the player to approach from the side
+                let targetX = px + ed._flankDir * 150;
+                let dToTarget = targetX - s.x;
+                if (Math.abs(dToTarget) > 20) {
+                    let d = dToTarget > 0 ? 1 : -1;
+                    s.setVelocityX(d * baseSpeed * 1.2);
+                    s.setFlipX(d < 0);
+                } else {
+                    // Flanked -- now close in
+                    let dir = px > s.x ? 1 : -1;
+                    s.setVelocityX(dir * baseSpeed * 0.8);
+                    s.setFlipX(dir < 0);
+                }
+                break;
+            }
         }
 
         this.constrainToSurface(ed);
@@ -1190,12 +1216,13 @@ class GameScene extends Phaser.Scene {
                 break;
             }
             case 'ZIGZAG_CHARGE': {
-                s.setVelocityX(dir * baseSpeed * ed.chargeSpeedMult);
-                // Small vertical hops
+                // True zigzag: alternate lateral direction while closing in
+                let zigPhase = Math.sin(ed.animTimer * 0.15);
+                s.setVelocityX(dir * baseSpeed * ed.chargeSpeedMult * 0.5 + zigPhase * baseSpeed * 0.8);
                 if (ed.animTimer % 20 === 0) {
                     s.y -= 8;
                 }
-                s.setFlipX(dir < 0);
+                s.setFlipX(s.body.velocity.x < 0);
                 break;
             }
             case 'LEAP': {
@@ -1208,6 +1235,20 @@ class GameScene extends Phaser.Scene {
                     s.setVelocityX(dir * baseSpeed * 0.5);
                 }
                 s.setFlipX(dir < 0);
+                break;
+            }
+            case 'AMBUSH': {
+                ed._ambushTimer++;
+                if (ed._ambushTimer < 40) {
+                    // Crouch and wait (barely move)
+                    s.setVelocityX(0);
+                    s.setAlpha(ed._ambushTimer % 10 < 5 ? 0.5 : 0.7);
+                } else {
+                    // Explosive dash toward player
+                    s.setAlpha(1);
+                    s.setVelocityX(dir * baseSpeed * 2.0);
+                    s.setFlipX(dir < 0);
+                }
                 break;
             }
         }
@@ -1248,8 +1289,8 @@ class GameScene extends Phaser.Scene {
                 }
                 ed.swoopPhase++;
                 if (ed.swoopPhase < 40) {
-                    // Dive down toward player
-                    s.x += (px - s.x) * 0.03;
+                    // Dive down toward player with lateral weave
+                    s.x += (px - s.x) * 0.03 + Math.sin(ed.swoopPhase * 0.2) * 2;
                     s.y += 4;
                     if (s.y > ed.swoopTargetY) s.y = ed.swoopTargetY;
                 } else {
@@ -1727,20 +1768,20 @@ class GameScene extends Phaser.Scene {
                 weights = b.enraged ? [20, 15, 20, 15, 10, 20] : [25, 15, 15, 10, 20, 15];
                 break;
             case 'golem':
-                attacks = ['walk_slam', 'rock_rain', 'charge', 'ground_crack', 'rock_shield', 'rock_drop'];
-                weights = b.enraged ? [20, 20, 15, 15, 15, 15] : [30, 20, 15, 15, 20, 0];
+                attacks = ['walk_slam', 'rock_rain', 'charge', 'ground_crack', 'rock_shield', 'rock_drop', 'slow_homing'];
+                weights = b.enraged ? [15, 15, 12, 12, 12, 12, 22] : [25, 15, 12, 12, 18, 0, 18];
                 break;
             case 'storm_crow':
-                attacks = ['lightning', 'dive_bomb', 'tornado', 'chain_lightning', 'wind_gust', 'feather_barrage'];
-                weights = b.enraged ? [20, 15, 15, 20, 10, 20] : [25, 15, 15, 15, 10, 20];
+                attacks = ['lightning', 'dive_bomb', 'tornado', 'chain_lightning', 'wind_gust', 'feather_barrage', 'ball_lightning'];
+                weights = b.enraged ? [15, 12, 12, 15, 8, 18, 20] : [20, 12, 12, 12, 10, 17, 17];
                 break;
             case 'cave_worm':
-                attacks = ['emerge_snap', 'acid_spit', 'tail_sweep', 'summon_grubs'];
-                weights = b.enraged ? [25, 25, 25, 25] : [30, 25, 25, 20];
+                attacks = ['emerge_snap', 'acid_spit', 'tail_sweep', 'summon_grubs', 'acid_spray'];
+                weights = b.enraged ? [20, 20, 20, 15, 25] : [25, 20, 20, 15, 20];
                 break;
             case 'fire_drake':
-                attacks = ['fireball_spray', 'flame_breath', 'dive_fire_trail', 'wing_buffet'];
-                weights = b.enraged ? [25, 25, 25, 25] : [30, 20, 25, 25];
+                attacks = ['fireball_spray', 'flame_breath', 'dive_fire_trail', 'wing_buffet', 'meteor_rain'];
+                weights = b.enraged ? [20, 20, 20, 15, 25] : [25, 15, 22, 20, 18];
                 break;
             case 'ruin_knight':
                 attacks = ['sword_slash', 'shield_charge', 'summon_wolves', 'teleport_strike', 'magic_orb', 'spiral'];
@@ -1789,6 +1830,7 @@ class GameScene extends Phaser.Scene {
                     case 'ground_crack': b.startupFrames = 20; b.activeFrames = 10; b.recoveryFrames = e ? 70 : 100; break;
                     case 'rock_shield': b.startupFrames = 15; b.activeFrames = 120; b.recoveryFrames = e ? 50 : 80; break;
                     case 'rock_drop': b.startupFrames = 15; b.activeFrames = 10; b.recoveryFrames = e ? 50 : 80; break;
+                    case 'slow_homing': b.startupFrames = 25; b.activeFrames = 10; b.recoveryFrames = e ? 60 : 90; break;
                 }
                 break;
             case 'storm_crow':
@@ -1799,6 +1841,7 @@ class GameScene extends Phaser.Scene {
                     case 'chain_lightning': b.startupFrames = 20; b.activeFrames = 50; b.recoveryFrames = e ? 50 : 80; break;
                     case 'wind_gust': b.startupFrames = 10; b.activeFrames = 30; b.recoveryFrames = e ? 40 : 60; break;
                     case 'feather_barrage': b.startupFrames = 15; b.activeFrames = 10; b.recoveryFrames = e ? 30 : 50; break;
+                    case 'ball_lightning': b.startupFrames = 20; b.activeFrames = 10; b.recoveryFrames = e ? 40 : 65; break;
                 }
                 break;
             case 'cave_worm':
@@ -1807,6 +1850,7 @@ class GameScene extends Phaser.Scene {
                     case 'acid_spit': b.startupFrames = 20; b.activeFrames = 10; b.recoveryFrames = e ? 45 : 70; break;
                     case 'tail_sweep': b.startupFrames = 25; b.activeFrames = 15; b.recoveryFrames = e ? 50 : 80; break;
                     case 'summon_grubs': b.startupFrames = 30; b.activeFrames = 10; b.recoveryFrames = e ? 70 : 100; break;
+                    case 'acid_spray': b.startupFrames = 20; b.activeFrames = 40; b.recoveryFrames = e ? 45 : 70; break;
                 }
                 break;
             case 'fire_drake':
@@ -1815,6 +1859,7 @@ class GameScene extends Phaser.Scene {
                     case 'flame_breath': b.startupFrames = 30; b.activeFrames = 90; b.recoveryFrames = e ? 50 : 70; break;
                     case 'dive_fire_trail': b.startupFrames = 25; b.activeFrames = 50; b.recoveryFrames = e ? 50 : 80; break;
                     case 'wing_buffet': b.startupFrames = 15; b.activeFrames = 10; b.recoveryFrames = e ? 30 : 50; break;
+                    case 'meteor_rain': b.startupFrames = 30; b.activeFrames = 60; b.recoveryFrames = e ? 45 : 70; break;
                 }
                 break;
             case 'ruin_knight':
@@ -1960,6 +2005,16 @@ class GameScene extends Phaser.Scene {
                 this.spawnBossProjectile(px, -30, 0, 500, 'rock', 0xaa6644);
                 break;
             }
+            case 'slow_homing': {
+                let count = b.enraged ? 3 : 2;
+                for (let i = 0; i < count; i++) {
+                    let angle = -Math.PI/2 + (i - (count-1)/2) * 0.5;
+                    this.spawnBossProjectile(s.x, s.y - BOSS_SIZE/2,
+                        Math.cos(angle) * 120, Math.sin(angle) * 120,
+                        'rock', 0xcc8844, { turnRate: 0.015, life: 240 });
+                }
+                break;
+            }
         }
     }
 
@@ -2015,6 +2070,17 @@ class GameScene extends Phaser.Scene {
                 }
                 break;
             }
+            case 'ball_lightning': {
+                let dir = px < s.x ? -1 : 1;
+                let speed = b.enraged ? 140 : 100;
+                this.spawnBossProjectile(s.x, s.y, dir * speed, 0,
+                    'orb', 0xe0ff20, { amplitude: 60, sinePhase: 0, life: 240 });
+                if (b.enraged) {
+                    this.spawnBossProjectile(s.x, s.y, dir * speed, 0,
+                        'orb', 0xe0ff20, { amplitude: 60, sinePhase: Math.PI, life: 240 });
+                }
+                break;
+            }
         }
     }
 
@@ -2056,6 +2122,13 @@ class GameScene extends Phaser.Scene {
                 }
                 break;
             }
+            case 'acid_spray': {
+                // Sweeping arc of acid -- handled per-frame in updateBossActiveAttack
+                let dir = px < s.x ? -1 : 1;
+                b._sprayAngle = dir > 0 ? -0.6 : 0.6 + Math.PI;
+                b._sprayDir = dir;
+                break;
+            }
         }
     }
 
@@ -2085,6 +2158,10 @@ class GameScene extends Phaser.Scene {
             case 'wing_buffet': {
                 let dir = px < s.x ? -1 : 1;
                 this.player.setVelocityX(dir * 500);
+                break;
+            }
+            case 'meteor_rain': {
+                // Tracked fireballs raining from above -- handled per-frame in updateBossActiveAttack
                 break;
             }
         }
@@ -2223,6 +2300,13 @@ class GameScene extends Phaser.Scene {
                         }
                     }
                 }
+                if (name === 'acid_spray' && frame % 4 === 0) {
+                    b._sprayAngle += b._sprayDir * 0.03;
+                    this.spawnBossProjectile(s.x, s.y - BOSS_SIZE/2,
+                        Math.cos(b._sprayAngle) * 300,
+                        Math.sin(b._sprayAngle) * 300,
+                        'acid', 0x44ff44, { gravity: true });
+                }
                 break;
 
             case 'fire_drake':
@@ -2264,6 +2348,11 @@ class GameScene extends Phaser.Scene {
                         s.y -= 6;
                         if (s.y < b.savedY) s.y = b.savedY;
                     }
+                }
+                if (name === 'meteor_rain' && frame % 8 === 0) {
+                    let tx = this.player.x + (Math.random() - 0.5) * 250;
+                    this.spawnBossProjectile(tx, -30, (Math.random() - 0.5) * 60, 450,
+                        'fireball', 0xff8800);
                 }
                 break;
 

@@ -18,12 +18,12 @@ Each level has a unique visual theme and ends with a boss you must defeat before
 
 | Level | Theme | Boss | Boss HP | Boss Attacks |
 |-------|-------|------|---------|--------------|
-| 1 | The Garden | **Bunny King** | 8 | Carrot spreads, homing carrots, ground pound, summon minions |
-| 2 | Dark Forest | **Stone Golem** | 12 | Shockwaves, rock rain, charge, ground crack, spinning rock shield |
-| 3 | Storm Sky | **Storm Lord** | 16 | Lightning strikes, dive bombs, tornadoes, chain lightning, wind gusts, feather barrages |
-| 4 | Underground Caves | **Cave Worm** | 10 | Emerge+snap, acid spit, tail sweep, summon grubs |
-| 5 | Volcanic Peaks | **Fire Drake** | 14 | Fireball spray, flame breath, dive+fire trail, wing buffet |
-| 6 | Enchanted Ruins | **Ruin Knight** | 18 | Sword slash, shield charge, summon wolves, teleport+strike, magic orb barrage |
+| 1 | The Garden | **Bunny King** | 8 | Carrot spreads, homing carrots, ground pound, summon minions, spiral shot |
+| 2 | Dark Forest | **Stone Golem** | 12 | Shockwaves, rock rain, charge, ground crack, spinning rock shield, slow homing rocks |
+| 3 | Storm Sky | **Storm Lord** | 16 | Lightning strikes, dive bombs, tornadoes, chain lightning, wind gusts, feather barrages, ball lightning |
+| 4 | Underground Caves | **Cave Worm** | 10 | Emerge+snap, acid spit, acid spray arc, tail sweep, summon grubs |
+| 5 | Volcanic Peaks | **Fire Drake** | 14 | Fireball spray, flame breath, dive+fire trail, wing buffet, meteor rain |
+| 6 | Enchanted Ruins | **Ruin Knight** | 18 | Sword slash, shield charge, summon wolves, teleport+strike, magic orb barrage, spiral shot |
 
 - Boss health bar displayed at top of screen during fight
 - "BOSS INCOMING!" warning when you enter boss range
@@ -44,10 +44,10 @@ Each level has a unique visual theme and ends with a boss you must defeat before
 ### Smart Enemy AI
 | Enemy | Behaviors | HP | Points | Ammo Drop |
 |-------|-----------|-----|--------|-----------|
-| Bunny | Idle, hop toward, hop away | 1 | 10 | +1 |
-| Tortoise | Patrol, track player, shell retreat, stop-and-go | 2 | 20 | +3 |
-| Fox | Patrol, stalk, feint, zigzag charge, leap | 1 | 15 | +2 |
-| Crow | Sine patrol, swoop dive, circle | 1 | 15 | +2 |
+| Bunny | Idle, hop toward, hop away, zigzag approach | 1 | 10 | +1 |
+| Tortoise | Patrol, track player, shell retreat, stop-and-go, flank | 2 | 20 | +3 |
+| Fox | Patrol, stalk, feint, zigzag charge, leap, ambush | 1 | 15 | +2 |
+| Crow | Sine patrol, swoop dive (with weave), circle | 1 | 15 | +2 |
 
 Enemies use randomized AI state machines so each encounter feels different. Difficulty scales across levels with faster speeds and more aggressive compositions.
 
