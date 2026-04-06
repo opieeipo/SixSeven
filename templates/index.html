@@ -1672,6 +1672,10 @@ class GameScene extends Phaser.Scene {
                 if (b.attackFrame >= b.activeFrames) {
                     b.attackState = 'recovery';
                     b.attackFrame = 0;
+                    // Safety: reset boss to saved position if still off-screen
+                    if (s.y > H || s.y < -BOSS_SIZE) {
+                        s.y = b.savedY || (b.isFlying ? 150 : GROUND_Y - 20);
+                    }
                 }
                 break;
             case 'recovery':
@@ -1688,6 +1692,10 @@ class GameScene extends Phaser.Scene {
         s.x = Math.max(b.minX, Math.min(b.maxX, s.x));
         if (b.isFlying) {
             s.y = Math.max(40, Math.min(GROUND_Y - 20, s.y));
+        }
+        // Clamp Y: don't let ground boss stay off-screen
+        if (!b.isFlying && s.y > GROUND_Y + SPRITE_SIZE + 10) {
+            s.y = GROUND_Y - 20;
         }
 
         // Update shield rocks
@@ -2106,7 +2114,6 @@ class GameScene extends Phaser.Scene {
             }
             case 'teleport_strike': {
                 b._teleTarget = px;
-                b.sprite.setAlpha(0.2);
                 break;
             }
             case 'magic_orb': {
@@ -2207,6 +2214,10 @@ class GameScene extends Phaser.Scene {
                         if (frame > 15) {
                             b._emergePhase = 'emerge';
                             s.setAlpha(1); // pop back into view at new position
+                        }
+                    } else if (b._emergePhase === 'emerge') {
+                        s.y -= 16;
+                        if (s.y <= b.savedY) {
                             s.y = b.savedY;
                             b._emergePhase = 'done';
                         }
@@ -2290,6 +2301,11 @@ class GameScene extends Phaser.Scene {
     // Boss projectiles
     // --------------------------------------------------------
     spawnBossProjectile(x, y, vx, vy, type, color, opts) {
+        // Cap projectiles to prevent performance degradation in long fights
+        if (this.bossProjectiles.length >= 40) {
+            let oldest = this.bossProjectiles.shift();
+            oldest.gfx.destroy();
+        }
         opts = opts || {};
         let g = this.add.graphics();
         g.setDepth(11);
