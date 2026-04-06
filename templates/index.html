@@ -1713,6 +1713,9 @@ class GameScene extends Phaser.Scene {
                 if (b.attackFrame >= b.activeFrames) {
                     b.attackState = 'recovery';
                     b.attackFrame = 0;
+                    // Clear accumulated velocity from direct position manipulation
+                    s.body.setVelocity(0, 0);
+                    s.body.allowGravity = !b.isFlying;
                     // Safety: reset boss to saved position if still off-screen
                     if (s.y > H || s.y < -BOSS_SIZE) {
                         s.y = b.savedY || (b.isFlying ? 150 : GROUND_Y - 20);
@@ -1725,6 +1728,8 @@ class GameScene extends Phaser.Scene {
                 if (b.attackFrame >= b.recoveryFrames) {
                     b.attackState = 'choosing';
                     b.attackTimer = 20 + Math.floor(Math.random() * 20);
+                    // Reset velocity on entering choosing state
+                    s.body.setVelocity(0, 0);
                 }
                 break;
         }
@@ -1734,9 +1739,10 @@ class GameScene extends Phaser.Scene {
         if (b.isFlying) {
             s.y = Math.max(40, Math.min(GROUND_Y - 20, s.y));
         }
-        // Clamp Y: don't let ground boss stay off-screen
-        if (!b.isFlying && s.y > GROUND_Y + SPRITE_SIZE + 10) {
-            s.y = GROUND_Y - 20;
+        // Clamp Y: don't let boss go off-screen in either direction
+        if (!b.isFlying) {
+            if (s.y > GROUND_Y + SPRITE_SIZE + 10) s.y = GROUND_Y - 20;
+            if (s.y < -BOSS_SIZE * 2) s.y = GROUND_Y - 20;
         }
 
         // Update shield rocks
@@ -1925,6 +1931,9 @@ class GameScene extends Phaser.Scene {
             case 'ground_pound': {
                 b.savedY = s.y;
                 b._gpPhase = 'up';
+                // Disable gravity during direct position control
+                s.body.allowGravity = false;
+                s.body.setVelocity(0, 0);
                 break;
             }
             case 'summon': {
